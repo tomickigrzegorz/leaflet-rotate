@@ -29,9 +29,10 @@ Skrypt musi być załadowany **po** Leaflecie.
 | `rotateCompassControl` | `boolean \| object` | `false` | Kontrolka-kompas włączająca/wyłączająca obrót (patrz niżej). |
 | `preventPageGestures` | `boolean` | `true` | Blokuje natywny pinch-zoom **całej strony** w iOS Safari (`preventDefault` na zdarzeniach `gesturestart/change/end`), żeby uszczypnięcie działało na mapie, a nie powiększało stronę. Na desktopie/Androidzie zbędne (wystarcza `touch-action`), ale nieszkodliwe. Ustaw `false`, by wyłączyć. Działa niezależnie od `rotate`. |
 
-> Uwaga: gdy mapa jest obrócona (`bearing ≠ 0`), animacja zoomu jest automatycznie
-> wyłączana (zoom skacze od razu do celu). To celowe — animowana ścieżka zoomu
-> przy obrocie powodowała przesunięcie treści i szare kafle.
+> Uwaga: zoom (przyciskami, kółkiem, wokół kursora) jest animowany także przy
+> obrocie. Jeśli mapa była przesunięta, offset jest „commitowany" (reprojekcja
+> bez zmiany widoku) tuż przed animacją, dzięki czemu kotwica zostaje na miejscu
+> i nie pojawiają się szare kafle.
 
 ---
 

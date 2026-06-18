@@ -268,13 +268,20 @@
     this._onZoomTransitionEnd();
   };
 
-  // --- Disable animated zoom while rotated ---
-  // The animated zoom path doesn't reset mapPane / transform rotatePane when a
-  // non-zero pan offset exists, giving a wrong center + gray tiles (e.g. wheel
-  // zoom after panning). The non-animated _resetView path is rotation-correct.
+  // --- Smooth (animated) zoom while rotated ---
+  // The animated zoom path is rotation-correct (rotation-aware _getCenterOffset,
+  // renderer _updateTransform, marker/popup _animateZoom) as long as the map
+  // pane offset is zero. A leftover pan offset gave a wrong center + gray tiles,
+  // so commit the pan (reproject to mapPanePos = 0, visually identical) before
+  // animating, then let the standard animation run.
   var _tryAnimatedZoom = _mapProto._tryAnimatedZoom;
   _mapProto._tryAnimatedZoom = function (center, zoom, options) {
-    if (this._rotate && this._bearing) return false;
+    if (this._rotate && this._bearing && !this._animatingZoom) {
+      var pos = this._getMapPanePos();
+      if (pos && (pos.x || pos.y)) {
+        this._resetView(this.getCenter(), this.getZoom(), true);
+      }
+    }
     return _tryAnimatedZoom.call(this, center, zoom, options);
   };
 
