@@ -13,11 +13,12 @@
   var css = document.createElement("style");
   css.textContent = [
     ".geo-pos{position:relative;width:0;height:0}",
-    ".geo-dot{position:absolute;left:-9px;top:-9px;width:18px;height:18px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.35)}",
-    // stożek wskazuje GÓRĘ ekranu (mapa obraca się heading-up)
-    ".geo-cone{position:absolute;left:-30px;top:-66px;width:60px;height:60px;",
-    "background:radial-gradient(closest-side at 50% 100%, rgba(26,115,232,.45), rgba(26,115,232,0));",
-    "clip-path:polygon(50% 0, 100% 100%, 0 100%)}",
+    ".geo-dot{position:absolute;left:-10px;top:-10px;width:20px;height:20px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.4)}",
+    // stożek (latarka) wskazuje GÓRĘ ekranu (mapa obraca się heading-up):
+    // wierzchołek przy kropce (dół), rozszerza się ku górze, mocniejszy przy kropce
+    ".geo-cone{position:absolute;left:-48px;top:-90px;width:96px;height:90px;",
+    "background:linear-gradient(to top, rgba(26,115,232,.65), rgba(26,115,232,.18) 55%, rgba(26,115,232,0));",
+    "-webkit-clip-path:polygon(50% 100%, 0 0, 100% 0);clip-path:polygon(50% 100%, 0 0, 100% 0)}",
     ".geo-locate-btn{background:#fff;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer}",
     ".geo-locate-btn.active{color:#1a73e8}",
     ".geo-locate-btn svg{display:block}",

@@ -1,6 +1,6 @@
 // Ustawienia mapy + warstwa kafli
 const map = L.map("map", {
-  center: [52.23, 21.01],
+  center: [52.233174715695576, 20.934453606605533],
   zoom: 14,
   rotate: true,
   touchRotate: true,

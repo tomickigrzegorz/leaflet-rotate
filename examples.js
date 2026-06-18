@@ -5,11 +5,15 @@
 // Test wydajności: 300 markerów + dodatkowe wielokąty w widoku
 // =====================================================================
 const TEST_BOUNDS = {
-  latMin: 52.215,
-  latMax: 52.245,
-  lngMin: 20.985,
-  lngMax: 21.035,
+  latMin: 52.218174715695576,
+  latMax: 52.248174715695576,
+  lngMin: 20.909453606605533,
+  lngMax: 20.959453606605533,
 };
+
+map.on("click", function (e) {
+  console.log("Click at", e.latlng);
+});
 
 function randIn(min, max) {
   return min + Math.random() * (max - min);
@@ -64,22 +68,24 @@ function randIn(min, max) {
 // =====================================================================
 
 // --- Marker 1 (draggable) ---
-L.marker([52.23, 21.01], { draggable: true })
+L.marker([52.233174715695576, 20.934453606605533], { draggable: true })
   .addTo(map)
   .bindPopup("Warszawa — centrum")
   .bindTooltip("Przeciągnij mnie!", { direction: "top" });
 
 // --- Marker 2 ---
-L.marker([52.232, 21.015]).addTo(map).bindPopup("Drugi marker");
+L.marker([52.235174715695576, 20.939453606605533])
+  .addTo(map)
+  .bindPopup("Drugi marker");
 
 // --- Polygon (duży, obok markerów) ---
 L.polygon(
   [
-    [52.231, 21.006],
-    [52.233, 21.01],
-    [52.232, 21.014],
-    [52.23, 21.013],
-    [52.229, 21.009],
+    [52.234174715695576, 20.930453606605533],
+    [52.236174715695576, 20.934453606605533],
+    [52.235174715695576, 20.938453606605533],
+    [52.233174715695576, 20.937453606605533],
+    [52.232174715695576, 20.933453606605533],
   ],
   { color: "green", fillColor: "#0f0", fillOpacity: 0.25, weight: 3 },
 ).addTo(map);
@@ -87,18 +93,18 @@ L.polygon(
 // --- Polyline (niebieska trasa) ---
 L.polyline(
   [
-    [52.232, 21.005],
-    [52.234, 21.008],
-    [52.233, 21.012],
-    [52.231, 21.014],
-    [52.229, 21.011],
-    [52.228, 21.007],
+    [52.235174715695576, 20.929453606605533],
+    [52.237174715695576, 20.932453606605533],
+    [52.236174715695576, 20.936453606605533],
+    [52.234174715695576, 20.938453606605533],
+    [52.232174715695576, 20.935453606605533],
+    [52.231174715695576, 20.931453606605533],
   ],
   { color: "blue", weight: 4 },
 ).addTo(map);
 
 // --- Circle ---
-L.circle([52.231, 21.012], {
+L.circle([52.234174715695576, 20.936453606605533], {
   radius: 200,
   color: "#e63946",
   fillColor: "#e63946",
@@ -111,14 +117,14 @@ L.circle([52.231, 21.012], {
 // --- Rectangle ---
 L.rectangle(
   [
-    [52.228, 21.006],
-    [52.23, 21.01],
+    [52.231174715695576, 20.930453606605533],
+    [52.233174715695576, 20.934453606605533],
   ],
   { color: "#ff7800", weight: 3, fillOpacity: 0.15 },
 ).addTo(map);
 
 // --- CircleMarker ---
-L.circleMarker([52.2325, 21.008], {
+L.circleMarker([52.235674715695576, 20.932453606605533], {
   radius: 12,
   color: "#9b59b6",
   fillColor: "#9b59b6",
@@ -129,8 +135,8 @@ L.circleMarker([52.2325, 21.008], {
 
 // --- Gwiazdka (polygon) ---
 (function () {
-  var cx = 52.2295,
-    cy = 21.013,
+  var cx = 52.232674715695576,
+    cy = 20.937453606605533,
     outer = 0.002,
     inner = 0.0008,
     n = 5;
@@ -153,7 +159,10 @@ L.circleMarker([52.2325, 21.008], {
   var pts = [];
   for (var i = 0; i <= 60; i++) {
     var t = i / 60;
-    pts.push([52.228 + t * 0.006, 21.007 + Math.sin(t * Math.PI * 3) * 0.003]);
+    pts.push([
+      52.231174715695576 + t * 0.006,
+      20.931453606605533 + Math.sin(t * Math.PI * 3) * 0.003,
+    ]);
   }
   L.polyline(pts, {
     color: "#e63946",
@@ -163,7 +172,7 @@ L.circleMarker([52.2325, 21.008], {
 })();
 
 // --- Animowany marker (latający czerwony punkt) ---
-var animMarker = L.marker([52.23, 21.01], {
+var animMarker = L.marker([52.233174715695576, 20.934453606605533], {
   icon: L.divIcon({
     className: "",
     html: '<div style="background:#e74c3c;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 6px rgba(231,76,60,.6)"></div>',
@@ -172,7 +181,7 @@ var animMarker = L.marker([52.23, 21.01], {
   }),
 }).addTo(map);
 
-var flyTarget = [52.231, 21.012];
+var flyTarget = [52.234174715695576, 20.936453606605533];
 function animateFly() {
   var pos = animMarker.getLatLng();
   var dlat = flyTarget[0] - pos.lat,
@@ -180,8 +189,8 @@ function animateFly() {
   var dist = Math.sqrt(dlat * dlat + dlng * dlng);
   if (dist < 0.0003) {
     flyTarget = [
-      52.228 + Math.random() * 0.006,
-      21.006 + Math.random() * 0.012,
+      52.231174715695576 + Math.random() * 0.006,
+      20.930453606605533 + Math.random() * 0.012,
     ];
   } else {
     var s = 0.00012 / dist;
@@ -193,7 +202,7 @@ animateFly();
 
 // --- Obracający się marker (strzałka na orbicie) ---
 (function () {
-  var oc = [52.231, 21.01],
+  var oc = [52.234174715695576, 20.934453606605533],
     or = 0.002;
   var arrow = L.marker(oc, {
     icon: L.divIcon({
@@ -222,8 +231,8 @@ animateFly();
 
 // --- Pulsujący circleMarker + ślad ---
 (function () {
-  var cx = 52.23,
-    cy = 21.013,
+  var cx = 52.233174715695576,
+    cy = 20.937453606605533,
     r = 0.0015;
   var dot = L.circleMarker([cx, cy], {
     radius: 6,
