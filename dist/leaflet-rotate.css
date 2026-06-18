@@ -1,0 +1,27 @@
+/* @tomickigrzegorz/leaflet-rotate — control theme. Import only if you use the controls. */
+:root {
+  --lrc-control-bg: #fff;
+  --lrc-control-hover: #f4f4f4;
+  --lrc-control-size: 30px;
+}
+.leaflet-control-rotate { background: var(--lrc-control-bg); }
+.leaflet-control-rotate a {
+  display: block;
+  width: 26px;
+  height: 26px;
+  line-height: 26px;
+  text-align: center;
+  cursor: pointer;
+}
+.leaflet-control-rotate a:hover { background: var(--lrc-control-hover); }
+.leaflet-control-rotate-compass { background: var(--lrc-control-bg); }
+.leaflet-control-rotate-compass a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--lrc-control-size);
+  height: var(--lrc-control-size);
+  cursor: pointer;
+}
+.leaflet-control-rotate-compass a:hover { background: var(--lrc-control-hover); }
+.leaflet-rotate-compass--inactive a svg { filter: grayscale(1); }

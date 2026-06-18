@@ -7,5 +7,6 @@ import "./markers-overlays.js";
 import "./handlers.js";
 import "./controls.js";
 import "./page-gestures.js";
+import "./inject-css.js";
 
 void L;

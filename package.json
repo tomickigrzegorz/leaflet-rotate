@@ -20,8 +20,8 @@
   "sideEffects": true,
   "files": ["dist"],
   "scripts": {
-    "build": "rollup -c",
-    "prepare": "rollup -c"
+    "build": "rollup -c && node scripts/copy-assets.mjs",
+    "prepare": "npm run build"
   },
   "peerDependencies": { "leaflet": ">=1.9" },
   "devDependencies": {
