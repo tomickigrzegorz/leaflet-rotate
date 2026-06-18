@@ -11,15 +11,89 @@
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
+    <!-- TEST LocateControl (wyłączony)
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.90.0/dist/L.Control.Locate.min.css"
+    />
+    -->
+    <link rel="stylesheet" href="dist/leaflet-rotate.css" />
     <link rel="stylesheet" href="map.css?v=1" />
   </head>
   <body>
     <div id="map"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="leaflet-rotate-custom.js?v=25"></script>
+    <script src="dist/leaflet-rotate.umd.js"></script>
     <script src="map-config.js?v=1"></script>
     <script src="geo-heading.js?v=1"></script>
     <script src="geo-map-bridge.js?v=1"></script>
-    <!-- <script src="examples.js?v=1"></script> -->
+    <script src="examples.js?v=1"></script>
+
+    <!-- TEST: Leaflet.LocateControl jako provider heading (wyłączony)
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.90.0/dist/L.Control.Locate.min.js"></script>
+    <script>
+      (function () {
+        var lc = L.control
+          .locate({
+            position: "bottomright",
+            setView: "untilPanOrZoom",
+            flyTo: false,
+            keepCurrentZoomLevel: true,
+            showCompass: true,
+            drawCircle: true,
+            strings: { title: "Moja lokalizacja / heading-up" },
+          })
+          .addTo(map);
+
+        // Sterujemy obrotem własną flagą (stan following LocateControl bywa
+        // zawodny: klik przy kropce w widoku potrafi być no-op).
+        var lastH = null;
+        var paused = false;
+
+        // LocateControl nie emituje heading — wpinamy się w _setCompassHeading.
+        var _origSet = lc._setCompassHeading;
+        lc._setCompassHeading = function (h) {
+          _origSet.call(this, h);
+          var cur = this._compassHeading;
+          if (!Number.isFinite(cur) || paused) {
+            map.stopHeadingUp();
+            lastH = null;
+            return;
+          }
+          var dh =
+            lastH == null ? 999 : Math.abs(((cur - lastH + 540) % 360) - 180);
+          if (dh >= 1.5) {
+            lastH = cur;
+            map.setHeading(cur);
+          }
+        };
+
+        // przesunięcie/zoom przez użytkownika → zamroź obrót
+        map.on("dragstart zoomstart", function () {
+          if (lc._active) paused = true;
+        });
+
+        // po przesunięciu skomituj pan (mapPanePos->0), inaczej zoom przy
+        // obrocie liczy marker/treść od złego offsetu i dryfuje
+        map.on("dragend", function () {
+          if (map._bearing && map._commitRotatePan) map._commitRotatePan();
+        });
+
+        // klik w przycisk → wznów obrót (o ile dalej aktywny)
+        var _origClick = lc._onClick;
+        lc._onClick = function () {
+          _origClick.apply(this, arguments);
+          paused = !this._active;
+        };
+
+        map.on("locatedeactivate", function () {
+          paused = false;
+          lastH = null;
+          map.stopHeadingUp();
+          map.setBearing(0);
+        });
+      })();
+    </script>
+    -->
   </body>
 </html>
