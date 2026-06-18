@@ -17,6 +17,7 @@
     lng: null,
     accuracy: null,
     heading: null, // wygładzony, stopnie 0..360 (0=N, zgodnie z zegarem)
+    lastEmitHeading: null,
     source: null,
     // low-pass na wektorze kierunku (bez problemu z zawijaniem 359->0)
     sx: null,
@@ -80,7 +81,17 @@
     }
     if (heading != null) {
       pushHeading(((heading % 360) + 360) % 360);
-      emitUpdate(false);
+      // emituj kompas tylko przy realnej zmianie kierunku (tłumi szum Androida,
+      // każdy setHeading = repaint obróconej mapy)
+      var prev = state.lastEmitHeading;
+      var dh =
+        prev == null
+          ? 999
+          : Math.abs(((state.heading - prev + 540) % 360) - 180);
+      if (dh >= 1.5) {
+        state.lastEmitHeading = state.heading;
+        emitUpdate(false);
+      }
     }
   }
 

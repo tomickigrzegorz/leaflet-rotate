@@ -16,11 +16,12 @@
     ".geo-dot{position:absolute;left:-10px;top:-10px;width:20px;height:20px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.4)}",
     // stożek (latarka) wskazuje GÓRĘ ekranu (mapa obraca się heading-up):
     // wierzchołek przy kropce (dół), rozszerza się ku górze, mocniejszy przy kropce
-    ".geo-cone{position:absolute;left:-48px;top:-90px;width:96px;height:90px;",
+    ".geo-cone{position:absolute;left:-55px;top:-56px;width:110px;height:56px;",
     "background:linear-gradient(to top, rgba(26,115,232,.65), rgba(26,115,232,.18) 55%, rgba(26,115,232,0));",
-    "-webkit-clip-path:polygon(50% 100%, 0 0, 100% 0);clip-path:polygon(50% 100%, 0 0, 100% 0)}",
+    "-webkit-clip-path:polygon(43% 100%, 57% 100%, 82% 0, 18% 0);clip-path:polygon(43% 100%, 57% 100%, 82% 0, 18% 0)}",
     ".geo-locate-btn{background:#fff;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer}",
     ".geo-locate-btn.active{color:#1a73e8}",
+    ".geo-locate-btn.paused{color:#9aa0a6}",
     ".geo-locate-btn svg{display:block}",
   ].join("");
   document.head.appendChild(css);
@@ -28,7 +29,9 @@
   var posMarker = null;
   var accCircle = null;
   var active = false;
-  var lastPan = 0;
+  var following = false;
+  var lastLat = null;
+  var lastLng = null;
 
   var posIcon = L.divIcon({
     className: "",
@@ -40,10 +43,11 @@
   function onUpdate(e) {
     if (!active) return;
     var d = e.detail;
-    if (d.heading != null) map.setHeading(d.heading);
+    if (following && d.heading != null) map.setHeading(d.heading);
 
     if (d.lat == null) return;
     var ll = [d.lat, d.lng];
+    var moved = d.lat !== lastLat || d.lng !== lastLng;
 
     if (!posMarker) {
       accCircle = L.circle(ll, {
@@ -54,18 +58,40 @@
         fillOpacity: 0.12,
         interactive: false,
       }).addTo(map);
-      posMarker = L.marker(ll, { icon: posIcon, interactive: false, zIndexOffset: 1000 }).addTo(map);
-    } else {
+      posMarker = L.marker(ll, {
+        icon: posIcon,
+        interactive: false,
+        zIndexOffset: 1000,
+      }).addTo(map);
+    } else if (moved) {
       posMarker.setLatLng(ll);
       accCircle.setLatLng(ll).setRadius(d.accuracy || 0);
     }
 
-    // auto-centrowanie (throttle); animate:false -> mapPanePos=0, brak walki z rotacją
-    var now = Date.now();
-    if (now - lastPan > 200) {
-      lastPan = now;
-      map.panTo(ll, { animate: false });
+    lastLat = d.lat;
+    lastLng = d.lng;
+
+    // recenter tylko gdy pozycja realnie się zmieniła (nie co klatkę kompasu)
+    if (following && moved) map.panTo(ll, { animate: false });
+  }
+
+  function onUserMove() {
+    if (active && following) {
+      following = false;
+      updateBtn();
+      map.stopHeadingUp();
     }
+  }
+
+  function recenter() {
+    following = true;
+    updateBtn();
+    if (posMarker) map.panTo(posMarker.getLatLng(), { animate: false });
+  }
+
+  function updateBtn() {
+    btn.classList.toggle("active", active && following);
+    btn.classList.toggle("paused", active && !following);
   }
 
   function onError(e) {
@@ -75,17 +101,21 @@
   function enable() {
     if (active) return;
     active = true;
-    btn.classList.add("active");
+    following = true;
+    updateBtn();
     global.addEventListener("geo:update", onUpdate);
     global.addEventListener("geo:error", onError);
+    map.on("dragstart", onUserMove);
     GeoHeading.start();
   }
 
   function disable() {
     active = false;
-    btn.classList.remove("active");
+    following = false;
+    updateBtn();
     global.removeEventListener("geo:update", onUpdate);
     global.removeEventListener("geo:error", onError);
+    map.off("dragstart", onUserMove);
     if (GeoHeading.isRunning()) GeoHeading.stop();
     map.stopHeadingUp();
     map.setBearing(0);
@@ -94,6 +124,7 @@
       map.removeLayer(accCircle);
       posMarker = accCircle = null;
     }
+    lastLat = lastLng = null;
   }
 
   // --- przycisk toggle (gest dla zgody iOS) ---
@@ -110,7 +141,9 @@
       L.DomEvent.disableClickPropagation(c);
       L.DomEvent.on(btn, "click", function (ev) {
         L.DomEvent.stop(ev);
-        active ? disable() : enable();
+        if (!active) enable();
+        else if (!following) recenter();
+        else disable();
       });
       return c;
     },
