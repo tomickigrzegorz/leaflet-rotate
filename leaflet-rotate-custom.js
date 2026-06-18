@@ -756,6 +756,7 @@
           if (Math.abs(angleDelta) > this._ROTATION_THRESHOLD) {
             this._rotationActive = true;
             this._rotRefAngle = angle;
+            map.stopHeadingUp();
           }
         }
         if (this._rotationActive) {
@@ -866,6 +867,7 @@
       if (!e.shiftKey) return;
       L.DomEvent.stop(e);
       var map = this._map;
+      map.stopHeadingUp();
       var delta = L.DomEvent.getWheelDelta(e);
       var next = map.getBearing() - delta * this._ROTATE_STEP;
       this._targetBearing = ((next % 360) + 360) % 360;
