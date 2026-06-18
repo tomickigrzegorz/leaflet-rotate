@@ -1,7 +1,6 @@
-/*! @tomickigrzegorz/leaflet-rotate v0.1.0 | MIT */
-import L from 'leaflet';
+import L from "leaflet";
 
-// =====================================================================
+  // =====================================================================
   // 1. L.Point — rotation helpers
   // =====================================================================
   L.Point.prototype.rotate = function (theta) {
