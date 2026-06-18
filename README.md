@@ -1,115 +1,142 @@
-# leaflet-rotate-custom
+# @tomickigrzegorz/leaflet-rotate
 
-Rozszerzenie Leaflet 1.9.4 dodające obrót mapy (bearing), obrót kafli, warstw
-wektorowych, markerów, popupów i tooltipów oraz gesty obrotu (mysz, klawiatura,
-dotyk) i kontrolkę-kompas.
+Leaflet map rotation: bearing, heading-up, touch/drag/keyboard rotate, and a compass control.
 
-## Instalacja
+## Install
 
-```html
-<link rel="stylesheet" href="leaflet@1.9.4/leaflet.css" />
-<script src="leaflet@1.9.4/leaflet.js"></script>
-<script src="leaflet-rotate-custom.js"></script>
+### Bundler (ESM, via git)
+
+```bash
+npm i github:tomickigrzegorz/leafelt-rotation
 ```
 
-Skrypt musi być załadowany **po** Leaflecie.
+```js
+import "leaflet";
+import "@tomickigrzegorz/leaflet-rotate";
+import "@tomickigrzegorz/leaflet-rotate/css"; // only if you use the rotate/compass controls
+```
+
+### Browser `<script>` (UMD)
+
+```html
+<link rel="stylesheet" href="leaflet.css" />
+<link rel="stylesheet" href="dist/leaflet-rotate.css" /> <!-- optional, for controls -->
+<script src="leaflet.js"></script>
+<script src="dist/leaflet-rotate.umd.min.js"></script>
+```
+
+Load it **after** Leaflet. `leaflet` is a peer dependency (>=1.9).
 
 ---
 
-## Opcje mapy (`L.map(id, { ... })`)
+## Map options (`L.map(id, { ... })`)
 
-| Opcja | Typ | Domyślnie | Opis |
+| Option | Type | Default | Description |
 |---|---|---|---|
-| `rotate` | `boolean` | `false` | Włącza cały system obrotu. **Wymagane** dla pozostałych opcji obrotu. Bez niego mapa działa jak zwykły Leaflet. |
-| `bearing` | `number` | `0` | Początkowy kąt obrotu mapy w stopniach (zgodnie z ruchem wskazówek zegara). |
-| `dragRotate` | `boolean` | `true` | Obrót **prawym przyciskiem myszy** (przeciąganie w poziomie). Aktywny tylko gdy `rotate: true`. |
-| `shiftKeyRotate` | `boolean` | `false` | Obrót przez **Shift + kółko myszy**. Zwykły zoom kółkiem jest wtedy blokowany przy wciśniętym Shift. |
-| `touchRotate` | `boolean` | `false` | Obrót gestem **dwóch palców** (pinch-rotate, styl Google Maps). Rotacja ma próg ~30°, żeby nie kolidowała z pinch-zoom. |
-| `rotateControl` | `boolean \| object` | `false` | Kontrolka strzałki resetująca obrót do północy (patrz niżej). |
-| `rotateCompassControl` | `boolean \| object` | `false` | Kontrolka-kompas włączająca/wyłączająca obrót (patrz niżej). |
-| `preventPageGestures` | `boolean` | `true` | Blokuje natywny pinch-zoom **całej strony** w iOS Safari (`preventDefault` na zdarzeniach `gesturestart/change/end`), żeby uszczypnięcie działało na mapie, a nie powiększało stronę. Na desktopie/Androidzie zbędne (wystarcza `touch-action`), ale nieszkodliwe. Ustaw `false`, by wyłączyć. Działa niezależnie od `rotate`. |
+| `rotate` | `boolean` | `false` | Enables the entire rotation system. **Required** for all other rotation options. Without it the map behaves as plain Leaflet. |
+| `bearing` | `number` | `0` | Initial map rotation angle in degrees (clockwise). |
+| `dragRotate` | `boolean` | `true` | Rotation with the **right mouse button** (horizontal drag). Active only when `rotate: true`. |
+| `shiftKeyRotate` | `boolean` | `false` | Rotation via **Shift + scroll wheel**. Normal scroll-wheel zoom is suppressed while Shift is held. |
+| `touchRotate` | `boolean` | `false` | Rotation with a **two-finger** gesture (pinch-rotate, Google Maps style). Rotation has a ~30° threshold to avoid colliding with pinch-zoom. |
+| `rotateControl` | `boolean \| object` | `false` | Arrow control that resets bearing to north (see below). |
+| `rotateCompassControl` | `boolean \| object` | `false` | Compass control that toggles rotation (see below). |
+| `preventPageGestures` | `boolean` | `true` | Blocks native page pinch-zoom on iOS Safari (`preventDefault` on `gesturestart/change/end` events) so a pinch acts on the map rather than zooming the page. Not needed on desktop/Android (where `touch-action` suffices) but harmless. Set `false` to disable. Works independently of `rotate`. |
 
-> Uwaga: zoom (przyciskami, kółkiem, wokół kursora) jest animowany także przy
-> obrocie. Jeśli mapa była przesunięta, offset jest „commitowany" (reprojekcja
-> bez zmiany widoku) tuż przed animacją, dzięki czemu kotwica zostaje na miejscu
-> i nie pojawiają się szare kafle.
+> Note: zoom (via buttons, scroll wheel, or around the cursor) is animated even when the map is rotated. If the map was panned, the offset is "committed" (reprojected without changing the view) just before the animation, keeping the zoom anchor in place and preventing grey tile flashes.
 
 ---
 
-## `rotateCompassControl` — kompas (główny przełącznik obrotu)
+## `rotateCompassControl` — compass (main rotation toggle)
 
-Wartość:
-- `false` — kontrolka nie jest dodawana (przycisk niewidoczny).
-- `true` — kontrolka z ustawieniami domyślnymi.
-- `object` — kontrolka z własnymi ustawieniami:
+Value:
+- `false` — control is not added (button invisible).
+- `true` — control with default settings.
+- `object` — control with custom settings:
 
 ```js
 rotateCompassControl: { enabled: false, position: "bottomright" }
 ```
 
-| Pole | Typ | Domyślnie | Opis |
+| Field | Type | Default | Description |
 |---|---|---|---|
-| `enabled` | `boolean` | `false` | Stan startowy obrotu. `true` = obrót aktywny od razu, przycisk kolorowy. `false` = obrót wyłączony, włącza się **dopiero po kliknięciu** kompasu. |
-| `position` | `string` | `"bottomright"` | Pozycja: `"topleft"`, `"topright"`, `"bottomleft"`, `"bottomright"`. |
+| `enabled` | `boolean` | `false` | Initial rotation state. `true` = rotation active immediately, button coloured. `false` = rotation off, enabled **only after clicking** the compass. |
+| `position` | `string` | `"bottomright"` | Position: `"topleft"`, `"topright"`, `"bottomleft"`, `"bottomright"`. |
 
-Zachowanie:
-- Kliknięcie przełącza obrót **on/off**. Wyłączenie resetuje też `bearing` do 0 i wyłącza wszystkie gesty obrotu (`dragRotate`, `shiftKeyRotate`, `touchGestures`).
-- Ikona obraca się zgodnie z aktualnym `bearing`.
-- Gdy widoczna, ale **nieaktywna** → ikona w skali szarości (czarno-biała). Aktywna → w kolorze.
+Behaviour:
+- Click toggles rotation **on/off**. Disabling also resets `bearing` to 0 and disables all rotation gestures (`dragRotate`, `shiftKeyRotate`, `touchGestures`).
+- The icon rotates with the current `bearing`.
+- When visible but **inactive** → icon is greyscale. Active → coloured.
 
 ---
 
-## `rotateControl` — strzałka resetująca do północy
+## `rotateControl` — arrow that resets to north
 
 ```js
 rotateControl: { position: "topleft", closeOnZeroBearing: true }
 ```
 
-| Pole | Typ | Domyślnie | Opis |
+| Field | Type | Default | Description |
 |---|---|---|---|
-| `position` | `string` | `"topleft"` | Pozycja kontrolki. |
-| `closeOnZeroBearing` | `boolean` | `true` | Ukrywa kontrolkę, gdy `bearing === 0`. |
+| `position` | `string` | `"topleft"` | Control position. |
+| `closeOnZeroBearing` | `boolean` | `true` | Hides the control when `bearing === 0`. |
 
-Kliknięcie ustawia `bearing` na 0 (północ).
+Click sets `bearing` to 0 (north).
 
 ---
 
-## Opcje markera (`L.marker(latlng, { ... })`)
+## Marker options (`L.marker(latlng, { ... })`)
 
-| Opcja | Typ | Domyślnie | Opis |
+| Option | Type | Default | Description |
 |---|---|---|---|
-| `rotation` | `number` | `0` | Obrót ikony markera w stopniach (niezależnie od mapy). |
-| `rotateWithView` | `boolean` | `false` | Marker obraca się razem z mapą (dodaje `bearing` mapy do `rotation`). |
-| `scale` | `number` | `undefined` | Skala ikony markera. |
+| `rotation` | `number` | `0` | Marker icon rotation in degrees (independent of the map). |
+| `rotateWithView` | `boolean` | `false` | Marker rotates with the map (adds the map's `bearing` to `rotation`). |
+| `scale` | `number` | `undefined` | Marker icon scale. |
 
-Po zmianie `marker.options.rotation` należy wywołać `marker.update()`.
+After changing `marker.options.rotation` call `marker.update()`.
 
 ---
 
-## API mapy
+## Map API
 
-| Metoda / zdarzenie | Opis |
+| Method / event | Description |
 |---|---|
-| `map.setBearing(stopnie)` | Ustawia kąt obrotu mapy (0–360, normalizowane). |
-| `map.getBearing()` | Zwraca bieżący kąt obrotu w stopniach. |
-| zdarzenie `"rotate"` | Emitowane przy każdej zmianie `bearing`. |
+| `map.setBearing(degrees)` | Sets the map rotation angle (0–360, normalised). |
+| `map.getBearing()` | Returns the current rotation angle in degrees. |
+| `map.setHeading(deg, options?)` | Heading-up mode: rotates the map so `deg` (0=N, clockwise) points to the top (`bearing = -deg`), smoothed via a rAF easing loop. `options.ease` (default `0.2`), `options.deadzone` (default `0.5`°). Pass `deg = null` to stop. |
+| `map.stopHeadingUp()` | Disables heading-up mode (does not reset `bearing`). |
+| `map.getHeadingUp()` | Returns whether heading-up mode is active. |
+| event `"rotate"` | Fired on every `bearing` change. |
 
 ---
 
-## Sterowanie obrotem (interakcje)
+## Rotation controls / interactions
 
-| Gest | Warunek (opcja) |
+| Gesture | Condition (option) |
 |---|---|
-| Prawy przycisk myszy + przeciąganie | `dragRotate: true` |
-| Shift + kółko myszy | `shiftKeyRotate: true` |
-| Dwa palce (obrót) | `touchRotate: true` |
-| Kliknięcie kompasu | `rotateCompassControl` (włącza/wyłącza obrót) |
+| Right mouse button + drag | `dragRotate: true` |
+| Shift + scroll wheel | `shiftKeyRotate: true` |
+| Two fingers (rotate) | `touchRotate: true` |
+| Compass click | `rotateCompassControl` (toggles rotation on/off) |
 
-Wszystkie wymagają `rotate: true`. Gdy obrót jest wyłączony przez kompas, żaden z gestów nie działa do czasu ponownego kliknięcia.
+All require `rotate: true`. When rotation is disabled via the compass, no gesture works until the compass is clicked again.
 
 ---
 
-## Przykład
+## Theming the controls
+
+Control styling lives in `@tomickigrzegorz/leaflet-rotate/css` and is driven by CSS variables — override them without `!important`:
+
+```css
+:root {
+  --lrc-control-bg: #1e1e1e;
+  --lrc-control-hover: #333;
+  --lrc-control-size: 34px;
+}
+```
+
+---
+
+## Example
 
 ```js
 const map = L.map("map", {
