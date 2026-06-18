@@ -606,6 +606,9 @@
         this._draggingWasEnabled = false;
       }
       if (map._stop) map._stop();
+      // Absorb any pan offset (mapPanePos -> 0) before the pinch so the anchor
+      // math and _move don't double-apply it (otherwise content drifts).
+      map._commitRotatePan();
       var p1 = map.mouseEventToContainerPoint(e.touches[0]);
       var p2 = map.mouseEventToContainerPoint(e.touches[1]);
 

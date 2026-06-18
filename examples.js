@@ -17,7 +17,7 @@ function randIn(min, max) {
 
 // --- 100 markerów ---
 (function () {
-  const n = 100;
+  const n = 40;
   const group = L.layerGroup().addTo(map);
   for (let i = 0; i < n; i++) {
     const lat = randIn(TEST_BOUNDS.latMin, TEST_BOUNDS.latMax);
