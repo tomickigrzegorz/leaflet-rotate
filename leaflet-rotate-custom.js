@@ -350,17 +350,13 @@
 
   var _rendererUpdateTransform = L.Renderer.prototype._updateTransform;
   L.Renderer.prototype._updateTransform = function (center, zoom) {
-    if (!this._map || !this._map._rotate || !this._map._bearing) {
+    if (!this._map || !this._map._rotate) {
       return _rendererUpdateTransform.call(this, center, zoom);
     }
-    if (!this._bounds) return;
+    if (!this._bounds || !this._boundsMinLatLng) return;
     var map = this._map;
     var scale = map.getZoomScale(zoom, this._zoom);
-    var offset = map._latLngToNewLayerPoint(
-      map.layerPointToLatLng(this._bounds.min),
-      zoom,
-      center,
-    );
+    var offset = map._latLngToNewLayerPoint(this._boundsMinLatLng, zoom, center);
     L.DomUtil.setTransform(this._container, offset, scale);
   };
 
@@ -387,6 +383,9 @@
     );
     this._center = map.getCenter();
     this._zoom = map.getZoom();
+    // Latlng of bounds.min captured while renderer zoom == map zoom, so
+    // _updateTransform can reproject it even after map._zoom changed (pinch).
+    this._boundsMinLatLng = map.layerPointToLatLng(this._bounds.min);
   };
 
   // =====================================================================

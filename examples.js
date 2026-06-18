@@ -15,14 +15,16 @@ function randIn(min, max) {
   return min + Math.random() * (max - min);
 }
 
-// --- 300 markerów ---
+// --- 100 markerów ---
 (function () {
-  const n = 300;
+  const n = 100;
   const group = L.layerGroup().addTo(map);
   for (let i = 0; i < n; i++) {
     const lat = randIn(TEST_BOUNDS.latMin, TEST_BOUNDS.latMax);
     const lng = randIn(TEST_BOUNDS.lngMin, TEST_BOUNDS.lngMax);
-    L.marker([lat, lng]).bindPopup("Marker #" + (i + 1)).addTo(group);
+    L.marker([lat, lng])
+      .bindPopup("Marker #" + (i + 1))
+      .addTo(group);
   }
 })();
 
