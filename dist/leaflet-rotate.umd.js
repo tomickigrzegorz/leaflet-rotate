@@ -1244,4 +1244,27 @@
       }
     });
 
+  // =====================================================================
+    // 13. Block page pinch-zoom gestures (iOS Safari)
+    //     CSS touch-action nie wystarcza na iOS — preventDefault na
+    //     gesturestart/change/end blokuje zoom całej strony.
+    // =====================================================================
+    L.Map.mergeOptions({ preventPageGestures: true });
+
+    L.Map.addInitHook(function () {
+      if (!this.options.preventPageGestures) return;
+      var events = ["gesturestart", "gesturechange", "gestureend"];
+      var prevent = function (e) {
+        e.preventDefault();
+      };
+      events.forEach(function (ev) {
+        document.addEventListener(ev, prevent, { passive: false });
+      });
+      this.on("unload", function () {
+        events.forEach(function (ev) {
+          document.removeEventListener(ev, prevent, { passive: false });
+        });
+      });
+    });
+
 }));

@@ -6,5 +6,6 @@ import "./heading.js";
 import "./markers-overlays.js";
 import "./handlers.js";
 import "./controls.js";
+import "./page-gestures.js";
 
 void L;
