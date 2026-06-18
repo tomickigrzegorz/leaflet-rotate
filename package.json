@@ -1,0 +1,35 @@
+{
+  "name": "@tomickigrzegorz/leaflet-rotate",
+  "version": "0.1.0",
+  "description": "Leaflet map rotation engine: bearing, heading-up, touch/drag/keyboard rotate, compass control.",
+  "private": true,
+  "type": "module",
+  "main": "dist/leaflet-rotate.umd.js",
+  "module": "dist/leaflet-rotate.esm.js",
+  "unpkg": "dist/leaflet-rotate.umd.min.js",
+  "jsdelivr": "dist/leaflet-rotate.umd.min.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/leaflet-rotate.esm.js",
+      "require": "./dist/leaflet-rotate.umd.js"
+    },
+    "./css": "./dist/leaflet-rotate.css"
+  },
+  "sideEffects": true,
+  "files": ["dist"],
+  "scripts": {
+    "build": "rollup -c",
+    "prepare": "rollup -c"
+  },
+  "peerDependencies": { "leaflet": ">=1.9" },
+  "devDependencies": {
+    "rollup": "^4.62.0",
+    "@rollup/plugin-terser": "^1.0.0"
+  },
+  "license": "MIT",
+  "author": "Grzegorz Tomicki",
+  "repository": { "type": "git", "url": "git+https://github.com/tomickigrzegorz/leafelt-rotation.git" },
+  "keywords": ["leaflet", "rotate", "rotation", "bearing", "heading", "compass", "map"]
+}
