@@ -1,6 +1,6 @@
 {
   "name": "@tomickigrzegorz/leaflet-rotate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Leaflet map rotation engine: bearing, heading-up, touch/drag/keyboard rotate, compass control.",
   "type": "module",
   "publishConfig": {
