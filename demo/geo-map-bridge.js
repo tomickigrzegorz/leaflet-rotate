@@ -1,8 +1,8 @@
-// geo-map-bridge.js — łączy dane z geo-heading.js z mapą (nasze potrzeby/demo).
-// Słucha 'geo:update', rysuje niebieską kropkę + okrąg dokładności + stożek,
-// auto-centruje i woła map.setHeading(). Wymaga mapy i window.GeoHeading.
-// Dla cudzej biblioteki (np. LocateControl) pomijasz ten plik i sam wołasz
-// map.setHeading(h) z jej zdarzeń.
+// geo-map-bridge.js — connects geo-heading.js data with the map (our needs/demo).
+// Listens to 'geo:update', draws a blue dot + accuracy circle + cone,
+// auto-centers and calls map.setHeading(). Requires the map and window.GeoHeading.
+// For a third-party library (e.g. LocateControl) skip this file and call
+// map.setHeading(h) yourself from its events.
 
 class GeoMapBridge {
   constructor(map, options = {}) {
@@ -16,7 +16,7 @@ class GeoMapBridge {
     this.following = false;
     this.lastLat = null;
     this.lastLng = null;
-    this.interacting = false; // palec/mysz na mapie — nie ruszamy mapą z czujników
+    this.interacting = false; // finger/mouse on the map — don't move it from sensors
     this.btn = null;
 
     this.posIcon = L.divIcon({
@@ -26,7 +26,7 @@ class GeoMapBridge {
       iconAnchor: [0, 0],
     });
 
-    // bind — żeby removeEventListener / map.off trafiły w tę samą referencję
+    // bind — so removeEventListener / map.off hit the same reference
     this._onUpdate = this._onUpdate.bind(this);
     this._onError = this._onError.bind(this);
     this._onUserMove = this._onUserMove.bind(this);
@@ -45,8 +45,8 @@ class GeoMapBridge {
     css.textContent = [
       ".geo-pos{position:relative;width:0;height:0}",
       ".geo-dot{position:absolute;left:-10px;top:-10px;width:20px;height:20px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.4)}",
-      // stożek (latarka) wskazuje GÓRĘ ekranu (mapa obraca się heading-up):
-      // wierzchołek przy kropce (dół), rozszerza się ku górze, mocniejszy przy kropce
+      // the cone (flashlight) points to the TOP of the screen (map rotates heading-up):
+      // apex at the dot (bottom), widens upward, stronger near the dot
       ".geo-cone{position:absolute;left:-55px;top:-56px;width:110px;height:56px;",
       "background:linear-gradient(to top, rgba(26,115,232,.65), rgba(26,115,232,.18) 55%, rgba(26,115,232,0));",
       "-webkit-clip-path:polygon(43% 100%, 57% 100%, 82% 0, 18% 0);clip-path:polygon(43% 100%, 57% 100%, 82% 0, 18% 0)}",
@@ -89,9 +89,9 @@ class GeoMapBridge {
     this.lastLat = d.lat;
     this.lastLng = d.lng;
 
-    // recenter tylko gdy pozycja realnie się zmieniła (nie co klatkę kompasu).
-    // panTo zostawia mapPanePos != 0 (panBy), co pod obrotem rozjeżdża zoom —
-    // commitujemy offset do 0 od razu (no-op gdy mapa nieobrócona).
+    // recenter only when the position actually changed (not every compass frame).
+    // panTo leaves mapPanePos != 0 (panBy), which under rotation breaks zoom —
+    // commit the offset to 0 right away (no-op when the map isn't rotated).
     if (this.following && moved) {
       this.map.panTo(ll, { animate: false });
       this.map._commitRotatePan();
@@ -128,7 +128,7 @@ class GeoMapBridge {
     this.interacting = true;
   }
   _onRelease(e) {
-    if (e && e.touches && e.touches.length > 0) return; // jeszcze palce na ekranie
+    if (e && e.touches && e.touches.length > 0) return; // fingers still on screen
     this.interacting = false;
   }
   _bindInteract() {
@@ -162,8 +162,8 @@ class GeoMapBridge {
     this.geo.start();
   }
 
-  // Po przesunięciu/zoomie skomituj offset pana (mapPanePos->0). Pod obrotem
-  // niewyzerowany offset rozjeżdża kolejny zoom/obrót (drift markerów).
+  // After pan/zoom commit the pan offset (mapPanePos->0). Under rotation a
+  // non-zero offset breaks the next zoom/rotate (marker drift).
   _onSettle() {
     if (this.map._bearing && this.map._commitRotatePan) {
       this.map._commitRotatePan();
@@ -190,7 +190,7 @@ class GeoMapBridge {
     this.lastLat = this.lastLng = null;
   }
 
-  // --- przycisk toggle (gest dla zgody iOS) ---
+  // --- toggle button (gesture for iOS permission) ---
   _addControl() {
     var self = this;
     var Ctrl = L.Control.extend({
@@ -199,7 +199,7 @@ class GeoMapBridge {
         var c = L.DomUtil.create("div", "leaflet-bar");
         self.btn = L.DomUtil.create("a", "geo-locate-btn", c);
         self.btn.href = "#";
-        self.btn.title = "Moja lokalizacja / heading-up";
+        self.btn.title = "My location / heading-up";
         self.btn.innerHTML =
           '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 3h-2.06A7 7 0 0013 5.06V3h-2v2.06A7 7 0 005.06 11H3v2h2.06A7 7 0 0011 18.94V21h2v-2.06A7 7 0 0018.94 13H21v-2zM12 17a5 5 0 110-10 5 5 0 010 10z"/></svg>';
         L.DomEvent.disableClickPropagation(c);
@@ -216,7 +216,7 @@ class GeoMapBridge {
   }
 }
 
-// instancja — wymaga globalnej `map` (z map-config.js)
+// instance — requires the global `map` (from map-config.js)
 if (window.map) {
   window.geoBridge = new GeoMapBridge(window.map);
 }

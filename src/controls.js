@@ -20,9 +20,9 @@ import L from "leaflet";
         container,
       );
       link.href = "#";
-      link.title = "Resetuj rotację";
+      link.title = "Reset rotation";
       link.setAttribute("role", "button");
-      link.setAttribute("aria-label", "Resetuj rotację");
+      link.setAttribute("aria-label", "Reset rotation");
       link.innerHTML =
         '<svg viewBox="0 0 24 24" width="18" height="18" style="display:block;margin:auto;padding:3px">' +
         '<path d="M12 2L8 8h3v8h2V8h3L12 2z" fill="currentColor"/></svg>';
@@ -92,9 +92,9 @@ import L from "leaflet";
         container,
       );
       link.href = "#";
-      link.title = "Obrót mapy";
+      link.title = "Map rotation";
       link.setAttribute("role", "button");
-      link.setAttribute("aria-label", "Obrót mapy");
+      link.setAttribute("aria-label", "Map rotation");
       link.innerHTML =
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill-rule="evenodd" clip-rule="evenodd" style="display:block;transform-origin:center;transform-box:fill-box">' +
         '<path fill="#ebebeb" stroke="#333" stroke-width=".6" d="m11.81.44 3.6 11.27h-7.2z"/>' +

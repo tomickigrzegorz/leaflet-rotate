@@ -1,9 +1,9 @@
-// geo-heading.js — czujniki: pozycja (GPS) + kierunek (kompas).
-// W pełni niezależny od mapy. Emituje na window:
+// geo-heading.js — sensors: position (GPS) + direction (compass).
+// Fully independent of the map. Emits on window:
 //   CustomEvent('geo:update', { detail: { lat, lng, accuracy, heading, source } })
 //   CustomEvent('geo:status', { detail: { sensors, permission } })
 //   CustomEvent('geo:error',  { detail: { code, message } })
-// Użycie: GeoHeading.start() (po geście użytkownika), GeoHeading.stop().
+// Usage: GeoHeading.start() (after a user gesture), GeoHeading.stop().
 
 class GeoHeadingSensor {
   static DEG = Math.PI / 180;
@@ -15,10 +15,10 @@ class GeoHeadingSensor {
     this.lat = null;
     this.lng = null;
     this.accuracy = null;
-    this.heading = null; // wygładzony, stopnie 0..360 (0=N, zgodnie z zegarem)
+    this.heading = null; // smoothed, degrees 0..360 (0=N, clockwise)
     this.lastEmitHeading = null;
     this.source = null;
-    // low-pass na wektorze kierunku (bez problemu z zawijaniem 359->0)
+    // low-pass on the direction vector (avoids the 359->0 wrap-around issue)
     this.sx = null;
     this.sy = null;
     this.k = 0.2;
@@ -26,7 +26,7 @@ class GeoHeadingSensor {
     this.minEmitMs = 16; // ~60 Hz
     this._orientEvName = null;
 
-    // bind — żeby removeEventListener trafił w tę samą referencję
+    // bind — so removeEventListener hits the same reference
     this._onOrientation = this._onOrientation.bind(this);
     this._onPosition = this._onPosition.bind(this);
     this._onPositionError = this._onPositionError.bind(this);
@@ -49,7 +49,7 @@ class GeoHeadingSensor {
     });
   }
 
-  // --- wygładzanie kierunku ---
+  // --- direction smoothing ---
   _pushHeading(deg) {
     if (deg == null || isNaN(deg)) return;
     const s = Math.sin(deg * GeoHeadingSensor.DEG);
@@ -65,15 +65,15 @@ class GeoHeadingSensor {
     this.heading = ((h % 360) + 360) % 360;
   }
 
-  // --- kierunek ze zdarzenia deviceorientation ---
+  // --- direction from the deviceorientation event ---
   _onOrientation(e) {
     let heading = null;
     if (typeof e.webkitCompassHeading === "number") {
-      // iOS: już względem północy, zgodnie z zegarem
+      // iOS: already relative to north, clockwise
       heading = e.webkitCompassHeading;
       this.source = "compass";
     } else if (e.absolute === true && typeof e.alpha === "number") {
-      // Android (deviceorientationabsolute): alpha rośnie przeciwnie do zegara
+      // Android (deviceorientationabsolute): alpha increases counter-clockwise
       const screenAngle =
         (window.screen.orientation && window.screen.orientation.angle) || 0;
       heading = (360 - e.alpha + screenAngle) % 360;
@@ -86,8 +86,8 @@ class GeoHeadingSensor {
     }
     if (heading != null) {
       this._pushHeading(((heading % 360) + 360) % 360);
-      // emituj kompas tylko przy realnej zmianie kierunku (tłumi szum Androida,
-      // każdy setHeading = repaint obróconej mapy)
+      // emit compass only on a real direction change (suppresses Android noise,
+      // every setHeading = repaint of the rotated map)
       const prev = this.lastEmitHeading;
       const dh =
         prev == null
@@ -111,7 +111,7 @@ class GeoHeadingSensor {
     this.emit("geo:error", { code: err.code, message: err.message });
   }
 
-  // --- nasłuch orientacji (iOS wymaga zgody po geście) ---
+  // --- orientation listener (iOS requires permission after a gesture) ---
   _addOrientationListener() {
     const evName =
       "ondeviceorientationabsolute" in window
@@ -143,7 +143,7 @@ class GeoHeadingSensor {
     this.running = true;
 
     if (!navigator.geolocation) {
-      this.emit("geo:error", { code: -1, message: "Brak geolokalizacji" });
+      this.emit("geo:error", { code: -1, message: "No geolocation" });
     } else {
       this.watchId = navigator.geolocation.watchPosition(
         this._onPosition,
@@ -183,5 +183,5 @@ class GeoHeadingSensor {
   }
 }
 
-// singleton — zgodny z dotychczasowym API (GeoHeading.start() itd.)
+// singleton — compatible with the existing API (GeoHeading.start() etc.)
 window.GeoHeading = new GeoHeadingSensor();

@@ -2,8 +2,8 @@ import L from "leaflet";
 
   // =====================================================================
   // 13. Block page pinch-zoom gestures (iOS Safari)
-  //     CSS touch-action nie wystarcza na iOS — preventDefault na
-  //     gesturestart/change/end blokuje zoom całej strony.
+  //     CSS touch-action is not enough on iOS — preventDefault on
+  //     gesturestart/change/end blocks zooming of the whole page.
   // =====================================================================
   L.Map.mergeOptions({ preventPageGestures: true });
 

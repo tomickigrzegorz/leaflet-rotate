@@ -1,8 +1,8 @@
-// Przykładowe warstwy do testu skalowania/rotacji.
-// Wymaga globalnej `map` z map-config.js.
+// Example layers for testing scaling/rotation.
+// Requires the global `map` from map-config.js.
 
 // =====================================================================
-// Test wydajności: 300 markerów + dodatkowe wielokąty w widoku
+// Performance test: 300 markers + extra polygons in the view
 // =====================================================================
 const TEST_BOUNDS = {
   latMin: 52.218174715695576,
@@ -19,7 +19,7 @@ function randIn(min, max) {
   return min + Math.random() * (max - min);
 }
 
-// --- 100 markerów ---
+// --- 100 markers ---
 (function () {
   const n = 20;
   const group = L.layerGroup().addTo(map);
@@ -32,7 +32,7 @@ function randIn(min, max) {
   }
 })();
 
-// --- 40 losowych wielokątów ---
+// --- 40 random polygons ---
 (function () {
   const colors = [
     "#1abc9c",
@@ -64,21 +64,21 @@ function randIn(min, max) {
 })();
 
 // =====================================================================
-// Wyróżnione, ręczne przykłady
+// Highlighted, hand-placed examples
 // =====================================================================
 
 // --- Marker 1 (draggable) ---
 L.marker([52.233174715695576, 20.934453606605533], { draggable: true })
   .addTo(map)
-  .bindPopup("Warszawa — centrum")
-  .bindTooltip("Przeciągnij mnie!", { direction: "top", offset: [-16, 0] });
+  .bindPopup("Warsaw — center")
+  .bindTooltip("Drag me!", { direction: "top", offset: [-16, 0] });
 
 // --- Marker 2 ---
 L.marker([52.235174715695576, 20.939453606605533])
   .addTo(map)
-  .bindPopup("Drugi marker");
+  .bindPopup("Second marker");
 
-// --- Polygon (duży, obok markerów) ---
+// --- Polygon (large, next to the markers) ---
 L.polygon(
   [
     [52.234174715695576, 20.930453606605533],
@@ -90,7 +90,7 @@ L.polygon(
   { color: "green", fillColor: "#0f0", fillOpacity: 0.25, weight: 3 },
 ).addTo(map);
 
-// --- Polyline (niebieska trasa) ---
+// --- Polyline (blue route) ---
 L.polyline(
   [
     [52.235174715695576, 20.929453606605533],
@@ -133,7 +133,7 @@ L.circleMarker([52.235674715695576, 20.932453606605533], {
   .addTo(map)
   .bindTooltip("CircleMarker", { permanent: true, direction: "right" });
 
-// --- Gwiazdka (polygon) ---
+// --- Star (polygon) ---
 (function () {
   var cx = 52.232674715695576,
     cy = 20.937453606605533,
@@ -154,7 +154,7 @@ L.circleMarker([52.235674715695576, 20.932453606605533], {
   }).addTo(map);
 })();
 
-// --- Sinusoida (polyline) ---
+// --- Sine wave (polyline) ---
 (function () {
   var pts = [];
   for (var i = 0; i <= 60; i++) {
@@ -171,7 +171,7 @@ L.circleMarker([52.235674715695576, 20.932453606605533], {
   }).addTo(map);
 })();
 
-// --- Animowany marker (latający czerwony punkt) ---
+// --- Animated marker (flying red dot) ---
 var animMarker = L.marker([52.233174715695576, 20.934453606605533], {
   icon: L.divIcon({
     className: "",
@@ -200,7 +200,7 @@ function animateFly() {
 }
 animateFly();
 
-// --- Obracający się marker (strzałka na orbicie) ---
+// --- Rotating marker (arrow on an orbit) ---
 (function () {
   var oc = [52.234174715695576, 20.934453606605533],
     or = 0.002;
@@ -229,7 +229,7 @@ animateFly();
   orbitAnim();
 })();
 
-// --- Pulsujący circleMarker + ślad ---
+// --- Pulsing circleMarker + trail ---
 (function () {
   var cx = 52.233174715695576,
     cy = 20.937453606605533,
@@ -263,10 +263,10 @@ animateFly();
 })();
 
 // =====================================================================
-// Test pluginów / dodatkowych typów warstw pod rotacją
+// Testing plugins / additional layer types under rotation
 // =====================================================================
 
-// --- Marker SVG (L.divIcon), obraca się z mapą ---
+// --- SVG marker (L.divIcon), rotates with the map ---
 (function () {
   var svg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="34" height="44" viewBox="0 0 34 44">' +
@@ -283,26 +283,26 @@ animateFly();
     draggable: true,
   })
     .addTo(map)
-    .bindPopup("Marker SVG (draggable)");
+    .bindPopup("SVG marker (draggable)");
 })();
 
-// --- Popup otwarty od razu ---
+// --- Popup open from the start ---
 L.marker([52.230674715695576, 20.948453606605533])
   .addTo(map)
-  .bindPopup("Popup otwarty od startu")
+  .bindPopup("Popup open from the start")
   .openPopup();
 
-// --- Klaster markerów (leaflet.markercluster) ---
+// --- Marker cluster (leaflet.markercluster) ---
 (function () {
   if (!L.markerClusterGroup) {
-    console.warn("markercluster nie załadowany");
+    console.warn("markercluster not loaded");
     return;
   }
   var cluster = L.markerClusterGroup();
   for (var i = 0; i < 30; i++) {
     var lat = randIn(52.2185, 52.2225);
     var lng = randIn(20.948, 20.958);
-    cluster.addLayer(L.marker([lat, lng]).bindPopup("Klaster #" + (i + 1)));
+    cluster.addLayer(L.marker([lat, lng]).bindPopup("Cluster #" + (i + 1)));
   }
   map.addLayer(cluster);
 })();
@@ -314,7 +314,7 @@ L.marker([52.230674715695576, 20.948453606605533])
     features: [
       {
         type: "Feature",
-        properties: { name: "GeoJSON punkt" },
+        properties: { name: "GeoJSON point" },
         geometry: {
           type: "Point",
           coordinates: [20.927453606605533, 52.239674715695576],
@@ -322,7 +322,7 @@ L.marker([52.230674715695576, 20.948453606605533])
       },
       {
         type: "Feature",
-        properties: { name: "GeoJSON linia" },
+        properties: { name: "GeoJSON line" },
         geometry: {
           type: "LineString",
           coordinates: [
@@ -334,7 +334,7 @@ L.marker([52.230674715695576, 20.948453606605533])
       },
       {
         type: "Feature",
-        properties: { name: "GeoJSON poligon" },
+        properties: { name: "GeoJSON polygon" },
         geometry: {
           type: "Polygon",
           coordinates: [

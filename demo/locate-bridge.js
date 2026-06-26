@@ -1,14 +1,14 @@
-// locate-bridge.js — alternatywny provider heading-up oparty o Leaflet.LocateControl.
-// Zamiast geo-heading.js + geo-map-bridge.js: LocateControl daje marker, okrąg
-// dokładności i kompas, a my wpinamy jego heading w map.setHeading().
-// Wymaga globalnej `map` oraz załadowanego L.Control.Locate. Plik testowy.
+// locate-bridge.js — alternative heading-up provider based on Leaflet.LocateControl.
+// Instead of geo-heading.js + geo-map-bridge.js: LocateControl provides a marker,
+// accuracy circle and compass, and we feed its heading into map.setHeading().
+// Requires the global `map` and a loaded L.Control.Locate. Test file.
 
 class LocateBridge {
   constructor(map, options = {}) {
     this.map = map;
     this.lastH = null;
-    // Sterujemy obrotem własną flagą (stan following LocateControl bywa
-    // zawodny: klik przy kropce w widoku potrafi być no-op).
+    // We control rotation with our own flag (LocateControl's following state is
+    // unreliable: a click while the dot is in view can be a no-op).
     this.paused = false;
 
     this.lc = L.control
@@ -19,7 +19,7 @@ class LocateBridge {
         keepCurrentZoomLevel: true,
         showCompass: true,
         drawCircle: true,
-        strings: { title: "Moja lokalizacja / heading-up" },
+        strings: { title: "My location / heading-up" },
       })
       .addTo(map);
 
@@ -31,7 +31,7 @@ class LocateBridge {
     var lc = this.lc;
     var map = this.map;
 
-    // LocateControl nie emituje heading — wpinamy się w _setCompassHeading.
+    // LocateControl doesn't emit heading — we hook into _setCompassHeading.
     var _origSet = lc._setCompassHeading;
     lc._setCompassHeading = function (h) {
       _origSet.call(this, h);
@@ -51,18 +51,18 @@ class LocateBridge {
       }
     };
 
-    // przesunięcie/zoom przez użytkownika → zamroź obrót
+    // user pan/zoom → freeze rotation
     map.on("dragstart zoomstart", function () {
       if (lc._active) self.paused = true;
     });
 
-    // po przesunięciu skomituj pan (mapPanePos->0), inaczej zoom przy
-    // obrocie liczy marker/treść od złego offsetu i dryfuje
+    // after pan commit the offset (mapPanePos->0), otherwise zoom while
+    // rotated computes the marker/content from a wrong offset and drifts
     map.on("dragend", function () {
       if (map._bearing && map._commitRotatePan) map._commitRotatePan();
     });
 
-    // klik w przycisk → wznów obrót (o ile dalej aktywny)
+    // button click → resume rotation (if still active)
     var _origClick = lc._onClick;
     lc._onClick = function () {
       _origClick.apply(this, arguments);
@@ -78,7 +78,7 @@ class LocateBridge {
   }
 }
 
-// instancja — wymaga globalnej `map` i załadowanego L.Control.Locate
+// instance — requires the global `map` and a loaded L.Control.Locate
 if (window.map && L.control && L.control.locate) {
   window.locateBridge = new LocateBridge(window.map);
 }

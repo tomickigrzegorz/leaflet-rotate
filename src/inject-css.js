@@ -1,5 +1,5 @@
-// Wstrzykuje TYLKO strukturalny CSS paneów (wymagany do działania rotacji).
-// Kosmetyka kontrolek jest w dist/leaflet-rotate.css (opcjonalny import).
+// Injects ONLY the structural pane CSS (required for rotation to work).
+// Control styling lives in dist/leaflet-rotate.css (optional import).
 const style = document.createElement("style");
 style.textContent = [
   ".leaflet-rotate-pane { position: absolute; top: 0; left: 0; will-change: transform; }",

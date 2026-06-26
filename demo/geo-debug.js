@@ -1,7 +1,7 @@
-// geo-debug.js — panel testowy czujników (lewy górny róg mapy).
-// Pokazuje dane z geo-heading.js: GPS (lat/lng/accuracy), kompas (heading),
-// źródło, status uprawnień i błędy. Przycisk Start/Stop (gest dla iOS).
-// Niezależny od mapy i bridge — wpina się tylko w zdarzenia window.
+// geo-debug.js — sensor test panel (top-left corner of the map).
+// Shows data from geo-heading.js: GPS (lat/lng/accuracy), compass (heading),
+// source, permission status and errors. Start/Stop button (gesture for iOS).
+// Independent of the map and bridge — only hooks into window events.
 (function () {
   "use strict";
 
@@ -28,10 +28,10 @@
     row("Status", "status", "—"),
     row("Lat", "lat", "—"),
     row("Lng", "lng", "—"),
-    row("Dokładność", "acc", "—"),
+    row("Accuracy", "acc", "—"),
     row("Heading", "heading", "—"),
-    row("Źródło", "source", "—"),
-    row("Błąd", "error", "—"),
+    row("Source", "source", "—"),
+    row("Error", "error", "—"),
     '<button id="geo-debug-btn">Start</button>',
   ].join("");
   (document.getElementById("map") || document.body).appendChild(box);
@@ -71,7 +71,7 @@
       "status",
       "GPS:" +
         (s.sensors.geolocation ? "✓" : "✗") +
-        " kompas:" +
+        " compass:" +
         (s.sensors.orientation ? "✓" : "✗"),
       ok ? "ok" : "err",
     );
@@ -87,7 +87,7 @@
     if (window.GeoHeading.isRunning()) {
       window.GeoHeading.stop();
       btn.textContent = "Start";
-      set("status", "zatrzymany");
+      set("status", "stopped");
     } else {
       window.GeoHeading.start();
       btn.textContent = "Stop";
