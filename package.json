@@ -28,7 +28,7 @@
     "prepare": "npm run build"
   },
   "peerDependencies": {
-    "leaflet": ">=1.9"
+    "leaflet": ">=1.9 <2"
   },
   "devDependencies": {
     "rollup": "^4.62.0",
