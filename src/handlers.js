@@ -14,6 +14,14 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
     _SCALE_THRESHOLD_ROT: 0.12,
     _MOVE_THRESHOLD: 4,
 
+    // --- Rotation inertia (momentum spin after release) ---
+    _ROT_INERTIA: true,           // master switch for the test
+    _ROT_DECAY: 0.0038,           // higher = stops faster (per ms)
+    _ROT_MIN_VELOCITY: 0.004,     // deg/ms below which inertia stops
+    _ROT_MAX_VELOCITY: 1.2,       // clamp deg/ms to avoid wild spins
+    _ROT_VELOCITY_SMOOTH: 0.4,    // EMA weight for new velocity samples
+    _ROT_STALE_MS: 80,            // ignore velocity if last move older than this
+
     addHooks: function () {
       L.DomEvent.on(
         this._map._container,
@@ -65,6 +73,10 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
         map.dragging.disable();
       }
       if (map._stop) map._stop();
+      this._stopRotateInertia();
+      this._rotVelocity = 0;
+      this._lastRotTime = 0;
+      this._lastRotBearing = 0;
       // A two-finger gesture = manual control. Kill the heading-up easing loop
       // NOW (touchstart), before any gesture math. Otherwise its per-frame
       // setBearing races the pinch's _move loop → markers/tiles drift (only with
@@ -185,6 +197,26 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
           newBearing = ((newBearing % 360) + 360) % 360;
           map.setBearing(newBearing);
           newBearingRad = map._bearingRad || 0;
+
+          // Track angular velocity (deg/ms) for release inertia
+          var now =
+            (typeof performance !== "undefined" && performance.now
+              ? performance.now()
+              : Date.now());
+          if (this._lastRotTime) {
+            var dtRot = now - this._lastRotTime;
+            if (dtRot > 0) {
+              var db = newBearing - this._lastRotBearing;
+              while (db > 180) db -= 360;
+              while (db < -180) db += 360;
+              var sample = db / dtRot;
+              var w = this._ROT_VELOCITY_SMOOTH;
+              this._rotVelocity =
+                (1 - w) * (this._rotVelocity || 0) + w * sample;
+            }
+          }
+          this._lastRotTime = now;
+          this._lastRotBearing = newBearing;
         }
       }
 
@@ -253,9 +285,69 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
         }
       }
       if (this._rotationActive) {
-        map.fire("rotate");
+        if (!this._startRotateInertia()) map.fire("rotate");
       }
       this.zoom = false;
+    },
+
+    _stopRotateInertia: function () {
+      if (this._rotInertiaReq) {
+        L.Util.cancelAnimFrame(this._rotInertiaReq);
+        this._rotInertiaReq = null;
+      }
+    },
+
+    _startRotateInertia: function () {
+      var map = this._map;
+      if (!this._ROT_INERTIA) return false;
+
+      var now =
+        (typeof performance !== "undefined" && performance.now
+          ? performance.now()
+          : Date.now());
+      // Stale: finger held still before lifting → no fling
+      if (
+        !this._lastRotTime ||
+        now - this._lastRotTime > this._ROT_STALE_MS ||
+        Math.abs(this._rotVelocity || 0) < this._ROT_MIN_VELOCITY
+      ) {
+        return false;
+      }
+
+      var v = this._rotVelocity;
+      var cap = this._ROT_MAX_VELOCITY;
+      if (v > cap) v = cap;
+      if (v < -cap) v = -cap;
+
+      var decay = this._ROT_DECAY;
+      var minV = this._ROT_MIN_VELOCITY;
+      var last = now;
+      var self = this;
+
+      map.fire("rotatestart");
+      var step = function () {
+        var t =
+          (typeof performance !== "undefined" && performance.now
+            ? performance.now()
+            : Date.now());
+        var dt = t - last;
+        last = t;
+        if (dt <= 0) dt = 16;
+
+        v *= Math.exp(-decay * dt);
+        if (Math.abs(v) < minV) {
+          self._rotInertiaReq = null;
+          map.fire("rotate");
+          return;
+        }
+        var b = map.getBearing() + v * dt;
+        b = ((b % 360) + 360) % 360;
+        map.setBearing(b);
+        map.fire("rotate");
+        self._rotInertiaReq = L.Util.requestAnimFrame(step, self);
+      };
+      this._rotInertiaReq = L.Util.requestAnimFrame(step, this);
+      return true;
     },
   });
 
