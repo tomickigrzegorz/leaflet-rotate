@@ -36,7 +36,7 @@
   "author": "Grzegorz Tomicki",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tomickigrzegorz/leafelt-rotation.git"
+    "url": "git+https://github.com/tomickigrzegorz/leaflet-rotation.git"
   },
   "keywords": [
     "leaflet",

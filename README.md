@@ -7,7 +7,7 @@ Leaflet map rotation: bearing, heading-up, touch/drag/keyboard rotate, and a com
 ### Bundler (ESM, via git)
 
 ```bash
-npm i github:tomickigrzegorz/leafelt-rotation
+npm i github:tomickigrzegorz/leaflet-rotation
 ```
 
 ```js
