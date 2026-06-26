@@ -424,8 +424,6 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
       var next = map.getBearing() - dir * delta * this._ROTATE_STEP;
       this._targetBearing = ((next % 360) + 360) % 360;
       if (!this._animating) {
-        this._mousePoint = map.mouseEventToContainerPoint(e);
-        this._anchorLatLng = map.containerPointToLatLng(this._mousePoint);
         this._startAnim();
       }
     },
@@ -442,8 +440,6 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
         this._animRequest = null;
       }
       this._animating = false;
-      this._anchorLatLng = null;
-      this._mousePoint = null;
     },
 
     _animate: function () {
@@ -461,25 +457,12 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
 
       if (Math.abs(diff) < 0.1) {
         map.setBearing(this._targetBearing);
-        this._panToAnchor(map);
         this._stopAnim();
         return;
       }
 
       map.setBearing(current + diff * this._EASE);
-      this._panToAnchor(map);
       this._animRequest = L.Util.requestAnimFrame(this._animate, this, true);
-    },
-
-    _panToAnchor: function (map) {
-      if (!this._anchorLatLng || !this._mousePoint) return;
-      var zoom = map.getZoom();
-      var viewHalf = map.getSize().divideBy(2);
-      var screenOffset = this._mousePoint.subtract(viewHalf);
-      var pivotPixel = map.project(this._anchorLatLng, zoom);
-      var centerPixel = pivotPixel.subtract(screenOffset.rotate(-map._bearingRad));
-      var newCenter = map.unproject(centerPixel, zoom);
-      map.setView(newCenter, zoom, { animate: false });
     },
   });
 
