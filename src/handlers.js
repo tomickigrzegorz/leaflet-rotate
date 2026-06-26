@@ -14,7 +14,8 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
     _SCALE_THRESHOLD_ROT: 0.12,
     _MOVE_THRESHOLD: 4,
     _ZOOM_EPS: 0.01,              // skip reproject if zoom unchanged this frame
-    _PAN_EPS: 1,                  // skip reproject if midpoint barely moved (px)
+    _PAN_EPS: 2,                  // skip reproject if midpoint barely moved (px)
+    _ZOOM_SNAP_STEP: 0.1,         // quantize live zoom → fewer reprojects
 
     // --- Rotation inertia (momentum spin after release) ---
     _ROT_INERTIA: true,           // master switch for the test
@@ -180,6 +181,12 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
             map.getMinZoom(),
             Math.min(map.getMaxZoom(), newZoom),
           );
+        }
+        // Quantize live zoom so reproject fires only on step crossings, not on
+        // every micro finger-distance jitter while rotating.
+        if (this._ZOOM_SNAP_STEP > 0) {
+          newZoom =
+            Math.round(newZoom / this._ZOOM_SNAP_STEP) * this._ZOOM_SNAP_STEP;
         }
       }
 
