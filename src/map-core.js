@@ -58,10 +58,21 @@ import { DEG_TO_RAD } from "./constants.js";
   _mapProto.setBearing = function (theta) {
     if (!this._rotate) return;
     this._commitRotatePan();
+    var prev = this._bearing || 0;
     var bearing = ((theta % 360) + 360) % 360;
     this._bearing = bearing;
     this._bearingRad = bearing * DEG_TO_RAD;
     this._updateRotatePaneTransform();
+    // Renderers use stock (small) bounds at bearing 0 and the big rotation-
+    // invariant square when rotated. Re-size them only when crossing that
+    // boundary — avoids clipping on rotate and the giant-SVG re-raster blink
+    // on flat pan.
+    if ((prev === 0) !== (bearing === 0)) {
+      for (var id in this._layers) {
+        var layer = this._layers[id];
+        if (layer instanceof L.Renderer) layer._update();
+      }
+    }
     this.fire("rotate");
   };
 
@@ -296,13 +307,12 @@ import { DEG_TO_RAD } from "./constants.js";
     _rendererOnAdd.call(this, map);
     if (map._rotate) {
       L.DomUtil.addClass(this._container, "leaflet-zoom-animated");
-      this.options.padding = Math.max(this.options.padding || 0, 1.5);
     }
   };
 
   var _rendererUpdateTransform = L.Renderer.prototype._updateTransform;
   L.Renderer.prototype._updateTransform = function (center, zoom) {
-    if (!this._map || !this._map._rotate) {
+    if (!this._map || !this._map._rotate || !this._map._bearing) {
       return _rendererUpdateTransform.call(this, center, zoom);
     }
     if (!this._bounds || !this._boundsMinLatLng) return;
@@ -314,7 +324,7 @@ import { DEG_TO_RAD } from "./constants.js";
 
   var _rendererUpdate = L.Renderer.prototype._update;
   L.Renderer.prototype._update = function () {
-    if (!this._map || !this._map._rotate) {
+    if (!this._map || !this._map._rotate || !this._map._bearing) {
       return _rendererUpdate.call(this);
     }
 
