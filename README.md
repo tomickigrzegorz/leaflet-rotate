@@ -36,6 +36,29 @@ import "@tomickigrzegorz/leaflet-rotate/css"; // only if you use the rotate/comp
 
 Load it **after** Leaflet. `leaflet` is a peer dependency (>=1.9).
 
+### CDN (no build step)
+
+Use [unpkg](https://unpkg.com) or [jsDelivr](https://www.jsdelivr.com) to drop it straight into a page — no install or bundler needed. Load it **after** Leaflet.
+
+```html
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- leaflet-rotate -->
+<link rel="stylesheet" href="https://unpkg.com/@tomickigrzegorz/leaflet-rotate/dist/leaflet-rotate.css" />
+<script src="https://unpkg.com/@tomickigrzegorz/leaflet-rotate/dist/leaflet-rotate.umd.min.js"></script>
+```
+
+jsDelivr equivalent:
+
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tomickigrzegorz/leaflet-rotate/dist/leaflet-rotate.css" />
+<script src="https://cdn.jsdelivr.net/npm/@tomickigrzegorz/leaflet-rotate/dist/leaflet-rotate.umd.min.js"></script>
+```
+
+Pin a version for production by appending `@x.y.z` to the package name, e.g. `@tomickigrzegorz/leaflet-rotate@0.2.1`. The `leaflet-rotate.css` is only needed if you use the rotate/compass control.
+
 ---
 
 ## Map options (`L.map(id, { ... })`)
