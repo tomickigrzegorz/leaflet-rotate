@@ -1,6 +1,8 @@
 import terser from "@rollup/plugin-terser";
+import { createRequire } from "node:module";
 
-const banner = "/*! @tomickigrzegorz/leaflet-rotate v0.1.0 | MIT */";
+const { name, version } = createRequire(import.meta.url)("./package.json");
+const banner = `/*! ${name} v${version} | MIT */`;
 const umd = {
   format: "umd",
   name: "LeafletRotate",

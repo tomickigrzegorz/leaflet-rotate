@@ -1,4 +1,4 @@
-/*! @tomickigrzegorz/leaflet-rotate v0.1.0 | MIT */
+/*! @tomickigrzegorz/leaflet-rotate v0.2.0 | MIT */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? factory(require('leaflet')) :
   typeof define === 'function' && define.amd ? define(['leaflet'], factory) :
