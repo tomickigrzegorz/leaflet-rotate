@@ -48,59 +48,52 @@ Load it **after** Leaflet. `leaflet` is a peer dependency (>=1.9).
 | `shiftKeyRotate`       | `boolean`           | `false` | Rotation via **Shift + scroll wheel**. Normal scroll-wheel zoom is suppressed while Shift is held.                                                                                                                                                                                               |
 | `touchRotate`          | `boolean`           | `false` | Rotation with a **two-finger** gesture (pinch-rotate, Google Maps style). Rotation has a ~30° threshold to avoid colliding with pinch-zoom.                                                                                                                                                      |
 | `rotateClockwise`      | `boolean`           | `true`  | Direction of all rotation inputs (two-finger, right-mouse drag, Shift+wheel). `true` = clockwise gesture rotates the map clockwise (MapLibre-like). Set `false` to invert all three.                                                                                                             |
-| `rotateControl`        | `boolean \| object` | `false` | Arrow control that resets bearing to north (see below).                                                                                                                                                                                                                                          |
-| `rotateCompassControl` | `boolean \| object` | `false` | Compass control that toggles rotation (see below).                                                                                                                                                                                                                                               |
+| `rotateControl`        | `boolean \| object` | `false` | Compass control. `behavior: "reset"` resets bearing to north; `behavior: "toggle"` enables/disables rotation (see below).                                                                                                                                                                          |
 | `preventPageGestures`  | `boolean`           | `true`  | Blocks native page pinch-zoom on iOS Safari (`preventDefault` on `gesturestart/change/end` events) so a pinch acts on the map rather than zooming the page. Not needed on desktop/Android (where `touch-action` suffices) but harmless. Set `false` to disable. Works independently of `rotate`. |
 
 > Note: zoom (via buttons, scroll wheel, or around the cursor) is animated even when the map is rotated. If the map was panned, the offset is "committed" (reprojected without changing the view) just before the animation, keeping the zoom anchor in place and preventing grey tile flashes.
 
 ---
 
-## `rotateCompassControl` — compass (main rotation toggle)
+## `rotateControl` — compass control
+
+A single compass control with two behaviours selected via `behavior`.
 
 Value:
 
 - `false` — control is not added (button invisible).
-- `true` — control with default settings.
+- `true` — control with default settings (`behavior: "reset"`).
 - `object` — control with custom settings:
 
 ```js
-rotateCompassControl: { enabled: false, position: "bottomright" }
+rotateControl: { position: "topleft", behavior: "reset", closeOnZeroBearing: true }
 ```
 
-| Field      | Type      | Default         | Description                                                                                                                                         |
-| ---------- | --------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`  | `boolean` | `false`         | Initial rotation state. `true` = rotation active immediately, button coloured. `false` = rotation off, enabled **only after clicking** the compass. |
-| `position` | `string`  | `"bottomright"` | Position: `"topleft"`, `"topright"`, `"bottomleft"`, `"bottomright"`.                                                                               |
+| Field                | Type      | Default     | Description                                                                                                          |
+| -------------------- | --------- | ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| `behavior`           | `string`  | `"reset"`   | `"reset"` = rotation always on, click returns to north. `"toggle"` = click enables/disables rotation.              |
+| `position`           | `string`  | `"topleft"` | Position: `"topleft"`, `"topright"`, `"bottomleft"`, `"bottomright"`.                                              |
+| `closeOnZeroBearing` | `boolean` | `true`      | **Reset mode only.** Hides the control when `bearing === 0` (appears after rotating, hides after returning north). |
+| `enabled`            | `boolean` | `false`     | **Toggle mode only.** Initial rotation state. `false` = rotation off until the compass is clicked.                 |
 
-Behaviour:
+### `behavior: "reset"` (rotation always on, Google-style)
 
-- Click toggles rotation **on/off**. Disabling also resets `bearing` to 0 and disables all rotation gestures (`dragRotate`, `shiftKeyRotate`, `touchGestures`).
-- The icon rotates with the current `bearing`.
-- When visible but **inactive** → icon is greyscale. Active → coloured.
+- Rotation is enabled by the map options (`rotate`, `dragRotate`, `touchRotate`, `shiftKeyRotate`) — the control does **not** manage gestures.
+- Click sets `bearing` to 0 (north).
+- The needle rotates with the current `bearing`.
+- With `closeOnZeroBearing: true` the control appears only when rotated and hides after returning to north (including after a click). With `false` it is always visible.
 
----
+### `behavior: "toggle"` (button enables rotation)
 
-## `rotateControl` — arrow that resets to north
+- Rotation is **off by default**. Click enables it (gestures active, needle coloured); click again disables it, resets `bearing` to 0, and greys the needle.
+- Always visible; state shown by needle colour (active = coloured, inactive = greyscale).
+- Two-finger gesture zooms and rotates simultaneously (Google-style) once rotation is enabled.
 
-```js
-rotateControl: { position: "topleft", closeOnZeroBearing: true }
-```
-
-| Field                | Type      | Default     | Description                             |
-| -------------------- | --------- | ----------- | --------------------------------------- |
-| `position`           | `string`  | `"topleft"` | Control position.                       |
-| `closeOnZeroBearing` | `boolean` | `true`      | Hides the control when `bearing === 0`. |
-
-Click sets `bearing` to 0 (north).
-
-### Adding controls programmatically
-
-Both controls can also be created via factory functions (e.g. to add them after map init):
+### Adding the control programmatically
 
 ```js
-L.control.rotate({ position: "topleft" }).addTo(map);
-L.control.rotateCompass({ enabled: true, position: "bottomright" }).addTo(map);
+L.control.rotate({ position: "topleft", behavior: "reset" }).addTo(map);
+L.control.rotate({ position: "bottomright", behavior: "toggle", enabled: false }).addTo(map);
 ```
 
 ---
@@ -154,9 +147,9 @@ map.stopHeadingUp(); // disable heading-up (keeps current bearing)
 | Right mouse button + drag | `dragRotate: true`                               |
 | Shift + scroll wheel      | `shiftKeyRotate: true`                           |
 | Two fingers (rotate)      | `touchRotate: true`                              |
-| Compass click             | `rotateCompassControl` (toggles rotation on/off) |
+| Compass click             | `rotateControl` with `behavior: "toggle"` (on/off) |
 
-All require `rotate: true`. When rotation is disabled via the compass, no gesture works until the compass is clicked again.
+All require `rotate: true`. With `rotateControl` in `behavior: "toggle"`, rotation is off until the compass is clicked; no gesture works until then.
 
 ---
 
@@ -185,7 +178,6 @@ const map = L.map("map", {
   shiftKeyRotate: true,
   dragRotate: true,
   rotateClockwise: true,
-  rotateControl: false,
-  rotateCompassControl: { enabled: false, position: "bottomright" },
+  rotateControl: { position: "topright", behavior: "reset", closeOnZeroBearing: true },
 });
 ```

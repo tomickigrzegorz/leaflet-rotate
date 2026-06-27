@@ -6,8 +6,14 @@ const map = L.map("map", {
   touchRotate: true,
   shiftKeyRotate: true,
   dragRotate: true,
-  rotateControl: false,
-  rotateCompassControl: { enabled: false, position: "bottomright" },
+  // behavior: "reset" → rotation always on, click returns to north
+  rotateControl: {
+    position: "bottomright",
+    behavior: "reset",
+    closeOnZeroBearing: false,
+  },
+  // behavior: "toggle" → button enables/disables rotation:
+  // rotateControl: { position: "bottomright", behavior: "toggle", enabled: false },
 });
 window.map = map;
 
