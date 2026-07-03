@@ -57,7 +57,7 @@ jsDelivr equivalent:
 <script src="https://cdn.jsdelivr.net/npm/@tomickigrzegorz/leaflet-rotate/dist/leaflet-rotate.umd.min.js"></script>
 ```
 
-Pin a version for production by appending `@x.y.z` to the package name, e.g. `@tomickigrzegorz/leaflet-rotate@0.2.2`. The `leaflet-rotate.css` is only needed if you use the rotate/compass control.
+Pin a version for production by appending `@x.y.z` to the package name, e.g. `@tomickigrzegorz/leaflet-rotate@0.2.3`. The `leaflet-rotate.css` is only needed if you use the rotate/compass control.
 
 ---
 
