@@ -54,6 +54,29 @@
   const DEG_TO_RAD = Math.PI / 180;
   const RAD_TO_DEG = 180 / Math.PI;
 
+  // Normalize degrees to [0, 360)
+  function normalizeDeg(deg) {
+    return ((deg % 360) + 360) % 360;
+  }
+
+  // Wrap a degree delta to [-180, 180)
+  function wrapDeg(deg) {
+    return normalizeDeg(deg + 180) - 180;
+  }
+
+  // Wrap a radian delta to [-PI, PI)
+  function wrapRad(rad) {
+    var twoPi = 2 * Math.PI;
+    return ((((rad + Math.PI) % twoPi) + twoPi) % twoPi) - Math.PI;
+  }
+
+  // Monotonic-ish timestamp; performance.now is missing in some old WebViews
+  function now() {
+    return typeof performance !== "undefined" && performance.now
+      ? performance.now()
+      : Date.now();
+  }
+
   // =====================================================================
     // 3. L.Map — core rotation
     // =====================================================================
@@ -110,9 +133,10 @@
     // --- setBearing / getBearing ---
     _mapProto$1.setBearing = function (theta) {
       if (!this._rotate) return;
-      this._commitRotatePan();
       var prev = this._bearing || 0;
-      var bearing = ((theta % 360) + 360) % 360;
+      var bearing = normalizeDeg(theta);
+      if (bearing === prev) return;
+      this._commitRotatePan();
       this._bearing = bearing;
       this._bearingRad = bearing * DEG_TO_RAD;
       this._updateRotatePaneTransform();
@@ -433,7 +457,7 @@
       this._headingDeadzone =
         options.deadzone != null ? options.deadzone : 0.5;
       // Heading direction must point to the top of the screen: bearing = -heading.
-      this._headingTarget = (((-deg % 360) + 360) % 360);
+      this._headingTarget = normalizeDeg(-deg);
       this._startHeadingAnim();
       return this;
     };
@@ -460,9 +484,7 @@
       this._headingRAF = null;
       if (!this._headingUp) return;
       var current = this.getBearing();
-      var diff = this._headingTarget - current;
-      while (diff > 180) diff -= 360;
-      while (diff < -180) diff += 360;
+      var diff = wrapDeg(this._headingTarget - current);
       if (Math.abs(diff) < this._headingDeadzone) {
         if (Math.abs(diff) > 0.001) this.setBearing(this._headingTarget);
         return; // settled; loop restarts on next setHeading
@@ -507,25 +529,31 @@
       this._resetZIndex();
     };
 
+    // Shared by update() and _rotateReposition: apply the marker's own
+    // rotation/scale on top of the position transform.
+    function _applyIconTransform(marker, map) {
+      var rotation = marker.options.rotation || 0;
+      if (marker.options.rotateWithView) {
+        rotation += map._bearing || 0;
+      }
+      if (rotation || marker.options.scale) {
+        var pos = L.DomUtil.getPosition(marker._icon) || new L.Point(0, 0);
+        var transform = "translate3d(" + pos.x + "px," + pos.y + "px,0)";
+        if (rotation) {
+          transform += " rotate(" + rotation + "deg)";
+        }
+        if (marker.options.scale) {
+          transform += " scale(" + marker.options.scale + ")";
+        }
+        marker._icon.style[L.DomUtil.TRANSFORM] = transform;
+      }
+    }
+
     var _markerUpdate = L.Marker.prototype.update;
     L.Marker.prototype.update = function () {
       var result = _markerUpdate.call(this);
       if (this._icon && this._map) {
-        var rotation = this.options.rotation || 0;
-        if (this.options.rotateWithView) {
-          rotation += this._map._bearing;
-        }
-        if (rotation || this.options.scale) {
-          var pos = L.DomUtil.getPosition(this._icon) || new L.Point(0, 0);
-          var transform = "translate3d(" + pos.x + "px," + pos.y + "px,0)";
-          if (rotation) {
-            transform += " rotate(" + rotation + "deg)";
-          }
-          if (this.options.scale) {
-            transform += " scale(" + this.options.scale + ")";
-          }
-          this._icon.style[L.DomUtil.TRANSFORM] = transform;
-        }
+        _applyIconTransform(this, this._map);
       }
       return result;
     };
@@ -544,21 +572,7 @@
         if (map._rotInertia) this._rotLayerPt = lp;
       }
       this._setPos(lp);
-      var rotation = this.options.rotation || 0;
-      if (this.options.rotateWithView) {
-        rotation += map._bearing;
-      }
-      if (rotation || this.options.scale) {
-        var pos = L.DomUtil.getPosition(this._icon) || new L.Point(0, 0);
-        var transform = "translate3d(" + pos.x + "px," + pos.y + "px,0)";
-        if (rotation) {
-          transform += " rotate(" + rotation + "deg)";
-        }
-        if (this.options.scale) {
-          transform += " scale(" + this.options.scale + ")";
-        }
-        this._icon.style[L.DomUtil.TRANSFORM] = transform;
-      }
+      _applyIconTransform(this, map);
     };
 
     // Rotation session ended: drop the cache and do a full update (which now
@@ -815,9 +829,7 @@
         var scale = dist / this._startDist;
         var scaleDelta = Math.abs(scale - 1);
 
-        var angleDelta = angle - this._startAngle;
-        while (angleDelta > Math.PI) angleDelta -= 2 * Math.PI;
-        while (angleDelta < -Math.PI) angleDelta += 2 * Math.PI;
+        var angleDelta = wrapRad(angle - this._startAngle);
 
         var rotationBeyond =
           map.options.touchRotate &&
@@ -877,33 +889,26 @@
             }
           }
           if (this._rotationActive) {
-            var rotDelta = angle - this._rotRefAngle;
-            while (rotDelta > Math.PI) rotDelta -= 2 * Math.PI;
-            while (rotDelta < -Math.PI) rotDelta += 2 * Math.PI;
+            var rotDelta = wrapRad(angle - this._rotRefAngle);
             var dir = map.options.rotateClockwise === false ? -1 : 1;
-            var newBearing = this._startBearing + dir * rotDelta * RAD_TO_DEG;
-            newBearing = ((newBearing % 360) + 360) % 360;
+            var newBearing = normalizeDeg(
+              this._startBearing + dir * rotDelta * RAD_TO_DEG,
+            );
             map.setBearing(newBearing);
             newBearingRad = map._bearingRad || 0;
 
             // Track angular velocity (deg/ms) for release inertia
-            var now =
-              (typeof performance !== "undefined" && performance.now
-                ? performance.now()
-                : Date.now());
+            var t = now();
             if (this._lastRotTime) {
-              var dtRot = now - this._lastRotTime;
+              var dtRot = t - this._lastRotTime;
               if (dtRot > 0) {
-                var db = newBearing - this._lastRotBearing;
-                while (db > 180) db -= 360;
-                while (db < -180) db += 360;
-                var sample = db / dtRot;
+                var sample = wrapDeg(newBearing - this._lastRotBearing) / dtRot;
                 var w = this._ROT_VELOCITY_SMOOTH;
                 this._rotVelocity =
                   (1 - w) * (this._rotVelocity || 0) + w * sample;
               }
             }
-            this._lastRotTime = now;
+            this._lastRotTime = t;
             this._lastRotBearing = newBearing;
           }
         }
@@ -1008,14 +1013,11 @@
         var map = this._map;
         if (!this._ROT_INERTIA) return false;
 
-        var now =
-          (typeof performance !== "undefined" && performance.now
-            ? performance.now()
-            : Date.now());
+        var t0 = now();
         // Stale: finger held still before lifting → no fling
         if (
           !this._lastRotTime ||
-          now - this._lastRotTime > this._ROT_STALE_MS ||
+          t0 - this._lastRotTime > this._ROT_STALE_MS ||
           Math.abs(this._rotVelocity || 0) < this._ROT_MIN_VELOCITY
         ) {
           return false;
@@ -1028,16 +1030,13 @@
 
         var decay = this._ROT_DECAY;
         var minV = this._ROT_MIN_VELOCITY;
-        var last = now;
+        var last = t0;
         var self = this;
 
         map._rotInertia = true;
         map.fire("rotatestart");
         var step = function () {
-          var t =
-            (typeof performance !== "undefined" && performance.now
-              ? performance.now()
-              : Date.now());
+          var t = now();
           var dt = t - last;
           last = t;
           if (dt <= 0) dt = 16;
@@ -1050,9 +1049,7 @@
             map.fire("rotateend");
             return;
           }
-          var b = map.getBearing() + v * dt;
-          b = ((b % 360) + 360) % 360;
-          map.setBearing(b);
+          map.setBearing(map.getBearing() + v * dt);
           self._rotInertiaReq = L.Util.requestAnimFrame(step, self);
         };
         this._rotInertiaReq = L.Util.requestAnimFrame(step, this);
@@ -1088,11 +1085,15 @@
         L.DomEvent.stop(e);
         var map = this._map;
         map.stopHeadingUp();
-        if (!this._animating) map.fire("rotatestart");
+        if (!this._animating) {
+          map._rotating = true;
+          map.fire("rotatestart");
+        }
         var delta = L.DomEvent.getWheelDelta(e);
         var dir = map.options.rotateClockwise === false ? -1 : 1;
-        var next = map.getBearing() - dir * delta * this._ROTATE_STEP;
-        this._targetBearing = ((next % 360) + 360) % 360;
+        this._targetBearing = normalizeDeg(
+          map.getBearing() - dir * delta * this._ROTATE_STEP,
+        );
         if (!this._animating) {
           this._startAnim();
         }
@@ -1109,7 +1110,11 @@
           L.Util.cancelAnimFrame(this._animRequest);
           this._animRequest = null;
         }
-        this._animating = false;
+        if (this._animating) {
+          this._animating = false;
+          this._map._rotating = false;
+          this._map.fire("rotateend");
+        }
       },
 
       _animate: function () {
@@ -1121,9 +1126,7 @@
 
         var map = this._map;
         var current = map.getBearing();
-        var diff = this._targetBearing - current;
-        if (diff > 180) diff -= 360;
-        if (diff < -180) diff += 360;
+        var diff = wrapDeg(this._targetBearing - current);
 
         if (Math.abs(diff) < 0.1) {
           map.setBearing(this._targetBearing);
@@ -1203,25 +1206,33 @@
       _onMove: function (e) {
         var dx = e.clientX - this._startX;
         if (!this._moved && Math.abs(dx) < 2) return;
-        if (!this._moved) this._map.fire("rotatestart");
-        this._moved = true;
+        if (!this._moved) {
+          this._moved = true;
+          this._map._rotating = true;
+          this._map.fire("rotatestart");
+        }
         this._map.stopHeadingUp();
         var dir = this._map.options.rotateClockwise === false ? -1 : 1;
         this._map.setBearing(this._startBearing + dir * dx * this._SENSITIVITY);
       },
       _onUp: function (e) {
+        var moved = this._moved;
         this._cleanup();
         if (this._draggingWasEnabled && this._map.dragging) {
           this._map.dragging.enable();
         }
-        if (this._moved) {
-          L.DomEvent.preventDefault(e);
-          this._map.fire("rotate");
-        }
+        if (moved) L.DomEvent.preventDefault(e);
       },
+      // Also runs on removeHooks: close a live rotation session so _rotating
+      // never sticks and rotatestart/rotateend stay balanced.
       _cleanup: function () {
         L.DomEvent.off(document, "mousemove", this._onMove, this);
         L.DomEvent.off(document, "mouseup", this._onUp, this);
+        if (this._moved) {
+          this._moved = false;
+          this._map._rotating = false;
+          this._map.fire("rotateend");
+        }
       },
     });
 
@@ -1438,11 +1449,16 @@
 
   // Injects ONLY the structural pane CSS (required for rotation to work).
   // Control styling lives in dist/leaflet-rotate.css (optional import).
-  const style = document.createElement("style");
-  style.textContent = [
-    ".leaflet-rotate-pane { position: absolute; top: 0; left: 0; will-change: transform; }",
-    ".leaflet-norotate-pane { position: absolute; top: 0; left: 0; z-index: 600; }",
-  ].join("\n");
-  document.head.appendChild(style);
+  // Guarded for SSR (no document) and double injection (ESM + UMD, HMR).
+  const STYLE_ID = "leaflet-rotate-panes";
+  if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = [
+      ".leaflet-rotate-pane { position: absolute; top: 0; left: 0; will-change: transform; }",
+      ".leaflet-norotate-pane { position: absolute; top: 0; left: 0; z-index: 600; }",
+    ].join("\n");
+    document.head.appendChild(style);
+  }
 
 }));

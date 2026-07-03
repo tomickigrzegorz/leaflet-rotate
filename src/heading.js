@@ -1,4 +1,5 @@
 import L from "leaflet";
+import { normalizeDeg, wrapDeg } from "./constants.js";
 
 const _mapProto = L.Map.prototype;
 
@@ -17,7 +18,7 @@ const _mapProto = L.Map.prototype;
     this._headingDeadzone =
       options.deadzone != null ? options.deadzone : 0.5;
     // Heading direction must point to the top of the screen: bearing = -heading.
-    this._headingTarget = (((-deg % 360) + 360) % 360);
+    this._headingTarget = normalizeDeg(-deg);
     this._startHeadingAnim();
     return this;
   };
@@ -44,9 +45,7 @@ const _mapProto = L.Map.prototype;
     this._headingRAF = null;
     if (!this._headingUp) return;
     var current = this.getBearing();
-    var diff = this._headingTarget - current;
-    while (diff > 180) diff -= 360;
-    while (diff < -180) diff += 360;
+    var diff = wrapDeg(this._headingTarget - current);
     if (Math.abs(diff) < this._headingDeadzone) {
       if (Math.abs(diff) > 0.001) this.setBearing(this._headingTarget);
       return; // settled; loop restarts on next setHeading
