@@ -1,5 +1,5 @@
 import L from "leaflet";
-import { DEG_TO_RAD } from "./constants.js";
+import { DEG_TO_RAD, normalizeDeg } from "./constants.js";
 
   // =====================================================================
   // 3. L.Map — core rotation
@@ -57,9 +57,10 @@ import { DEG_TO_RAD } from "./constants.js";
   // --- setBearing / getBearing ---
   _mapProto.setBearing = function (theta) {
     if (!this._rotate) return;
-    this._commitRotatePan();
     var prev = this._bearing || 0;
-    var bearing = ((theta % 360) + 360) % 360;
+    var bearing = normalizeDeg(theta);
+    if (bearing === prev) return;
+    this._commitRotatePan();
     this._bearing = bearing;
     this._bearingRad = bearing * DEG_TO_RAD;
     this._updateRotatePaneTransform();

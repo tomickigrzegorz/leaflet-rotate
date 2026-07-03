@@ -1,5 +1,12 @@
 import L from "leaflet";
-import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
+import {
+  DEG_TO_RAD,
+  RAD_TO_DEG,
+  normalizeDeg,
+  wrapDeg,
+  wrapRad,
+  now,
+} from "./constants.js";
 
   // =====================================================================
   // 9. Touch Gestures Handler — pinch zoom + rotate (Google Maps style)
@@ -142,9 +149,7 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
       var scale = dist / this._startDist;
       var scaleDelta = Math.abs(scale - 1);
 
-      var angleDelta = angle - this._startAngle;
-      while (angleDelta > Math.PI) angleDelta -= 2 * Math.PI;
-      while (angleDelta < -Math.PI) angleDelta += 2 * Math.PI;
+      var angleDelta = wrapRad(angle - this._startAngle);
 
       var rotationBeyond =
         map.options.touchRotate &&
@@ -204,33 +209,26 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
           }
         }
         if (this._rotationActive) {
-          var rotDelta = angle - this._rotRefAngle;
-          while (rotDelta > Math.PI) rotDelta -= 2 * Math.PI;
-          while (rotDelta < -Math.PI) rotDelta += 2 * Math.PI;
+          var rotDelta = wrapRad(angle - this._rotRefAngle);
           var dir = map.options.rotateClockwise === false ? -1 : 1;
-          var newBearing = this._startBearing + dir * rotDelta * RAD_TO_DEG;
-          newBearing = ((newBearing % 360) + 360) % 360;
+          var newBearing = normalizeDeg(
+            this._startBearing + dir * rotDelta * RAD_TO_DEG,
+          );
           map.setBearing(newBearing);
           newBearingRad = map._bearingRad || 0;
 
           // Track angular velocity (deg/ms) for release inertia
-          var now =
-            (typeof performance !== "undefined" && performance.now
-              ? performance.now()
-              : Date.now());
+          var t = now();
           if (this._lastRotTime) {
-            var dtRot = now - this._lastRotTime;
+            var dtRot = t - this._lastRotTime;
             if (dtRot > 0) {
-              var db = newBearing - this._lastRotBearing;
-              while (db > 180) db -= 360;
-              while (db < -180) db += 360;
-              var sample = db / dtRot;
+              var sample = wrapDeg(newBearing - this._lastRotBearing) / dtRot;
               var w = this._ROT_VELOCITY_SMOOTH;
               this._rotVelocity =
                 (1 - w) * (this._rotVelocity || 0) + w * sample;
             }
           }
-          this._lastRotTime = now;
+          this._lastRotTime = t;
           this._lastRotBearing = newBearing;
         }
       }
@@ -338,14 +336,11 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
       var map = this._map;
       if (!this._ROT_INERTIA) return false;
 
-      var now =
-        (typeof performance !== "undefined" && performance.now
-          ? performance.now()
-          : Date.now());
+      var t0 = now();
       // Stale: finger held still before lifting → no fling
       if (
         !this._lastRotTime ||
-        now - this._lastRotTime > this._ROT_STALE_MS ||
+        t0 - this._lastRotTime > this._ROT_STALE_MS ||
         Math.abs(this._rotVelocity || 0) < this._ROT_MIN_VELOCITY
       ) {
         return false;
@@ -358,16 +353,13 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
 
       var decay = this._ROT_DECAY;
       var minV = this._ROT_MIN_VELOCITY;
-      var last = now;
+      var last = t0;
       var self = this;
 
       map._rotInertia = true;
       map.fire("rotatestart");
       var step = function () {
-        var t =
-          (typeof performance !== "undefined" && performance.now
-            ? performance.now()
-            : Date.now());
+        var t = now();
         var dt = t - last;
         last = t;
         if (dt <= 0) dt = 16;
@@ -380,9 +372,7 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
           map.fire("rotateend");
           return;
         }
-        var b = map.getBearing() + v * dt;
-        b = ((b % 360) + 360) % 360;
-        map.setBearing(b);
+        map.setBearing(map.getBearing() + v * dt);
         self._rotInertiaReq = L.Util.requestAnimFrame(step, self);
       };
       this._rotInertiaReq = L.Util.requestAnimFrame(step, this);
@@ -418,11 +408,15 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
       L.DomEvent.stop(e);
       var map = this._map;
       map.stopHeadingUp();
-      if (!this._animating) map.fire("rotatestart");
+      if (!this._animating) {
+        map._rotating = true;
+        map.fire("rotatestart");
+      }
       var delta = L.DomEvent.getWheelDelta(e);
       var dir = map.options.rotateClockwise === false ? -1 : 1;
-      var next = map.getBearing() - dir * delta * this._ROTATE_STEP;
-      this._targetBearing = ((next % 360) + 360) % 360;
+      this._targetBearing = normalizeDeg(
+        map.getBearing() - dir * delta * this._ROTATE_STEP,
+      );
       if (!this._animating) {
         this._startAnim();
       }
@@ -439,7 +433,11 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
         L.Util.cancelAnimFrame(this._animRequest);
         this._animRequest = null;
       }
-      this._animating = false;
+      if (this._animating) {
+        this._animating = false;
+        this._map._rotating = false;
+        this._map.fire("rotateend");
+      }
     },
 
     _animate: function () {
@@ -451,9 +449,7 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
 
       var map = this._map;
       var current = map.getBearing();
-      var diff = this._targetBearing - current;
-      if (diff > 180) diff -= 360;
-      if (diff < -180) diff += 360;
+      var diff = wrapDeg(this._targetBearing - current);
 
       if (Math.abs(diff) < 0.1) {
         map.setBearing(this._targetBearing);
@@ -533,25 +529,33 @@ import { DEG_TO_RAD, RAD_TO_DEG } from "./constants.js";
     _onMove: function (e) {
       var dx = e.clientX - this._startX;
       if (!this._moved && Math.abs(dx) < 2) return;
-      if (!this._moved) this._map.fire("rotatestart");
-      this._moved = true;
+      if (!this._moved) {
+        this._moved = true;
+        this._map._rotating = true;
+        this._map.fire("rotatestart");
+      }
       this._map.stopHeadingUp();
       var dir = this._map.options.rotateClockwise === false ? -1 : 1;
       this._map.setBearing(this._startBearing + dir * dx * this._SENSITIVITY);
     },
     _onUp: function (e) {
+      var moved = this._moved;
       this._cleanup();
       if (this._draggingWasEnabled && this._map.dragging) {
         this._map.dragging.enable();
       }
-      if (this._moved) {
-        L.DomEvent.preventDefault(e);
-        this._map.fire("rotate");
-      }
+      if (moved) L.DomEvent.preventDefault(e);
     },
+    // Also runs on removeHooks: close a live rotation session so _rotating
+    // never sticks and rotatestart/rotateend stay balanced.
     _cleanup: function () {
       L.DomEvent.off(document, "mousemove", this._onMove, this);
       L.DomEvent.off(document, "mouseup", this._onUp, this);
+      if (this._moved) {
+        this._moved = false;
+        this._map._rotating = false;
+        this._map.fire("rotateend");
+      }
     },
   });
 

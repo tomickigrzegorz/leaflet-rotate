@@ -36,25 +36,31 @@ import L from "leaflet";
     this._resetZIndex();
   };
 
+  // Shared by update() and _rotateReposition: apply the marker's own
+  // rotation/scale on top of the position transform.
+  function _applyIconTransform(marker, map) {
+    var rotation = marker.options.rotation || 0;
+    if (marker.options.rotateWithView) {
+      rotation += map._bearing || 0;
+    }
+    if (rotation || marker.options.scale) {
+      var pos = L.DomUtil.getPosition(marker._icon) || new L.Point(0, 0);
+      var transform = "translate3d(" + pos.x + "px," + pos.y + "px,0)";
+      if (rotation) {
+        transform += " rotate(" + rotation + "deg)";
+      }
+      if (marker.options.scale) {
+        transform += " scale(" + marker.options.scale + ")";
+      }
+      marker._icon.style[L.DomUtil.TRANSFORM] = transform;
+    }
+  }
+
   var _markerUpdate = L.Marker.prototype.update;
   L.Marker.prototype.update = function () {
     var result = _markerUpdate.call(this);
     if (this._icon && this._map) {
-      var rotation = this.options.rotation || 0;
-      if (this.options.rotateWithView) {
-        rotation += this._map._bearing;
-      }
-      if (rotation || this.options.scale) {
-        var pos = L.DomUtil.getPosition(this._icon) || new L.Point(0, 0);
-        var transform = "translate3d(" + pos.x + "px," + pos.y + "px,0)";
-        if (rotation) {
-          transform += " rotate(" + rotation + "deg)";
-        }
-        if (this.options.scale) {
-          transform += " scale(" + this.options.scale + ")";
-        }
-        this._icon.style[L.DomUtil.TRANSFORM] = transform;
-      }
+      _applyIconTransform(this, this._map);
     }
     return result;
   };
@@ -73,21 +79,7 @@ import L from "leaflet";
       if (map._rotInertia) this._rotLayerPt = lp;
     }
     this._setPos(lp);
-    var rotation = this.options.rotation || 0;
-    if (this.options.rotateWithView) {
-      rotation += map._bearing;
-    }
-    if (rotation || this.options.scale) {
-      var pos = L.DomUtil.getPosition(this._icon) || new L.Point(0, 0);
-      var transform = "translate3d(" + pos.x + "px," + pos.y + "px,0)";
-      if (rotation) {
-        transform += " rotate(" + rotation + "deg)";
-      }
-      if (this.options.scale) {
-        transform += " scale(" + this.options.scale + ")";
-      }
-      this._icon.style[L.DomUtil.TRANSFORM] = transform;
-    }
+    _applyIconTransform(this, map);
   };
 
   // Rotation session ended: drop the cache and do a full update (which now
