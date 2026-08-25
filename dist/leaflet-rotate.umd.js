@@ -625,6 +625,25 @@
       return _markerResetZIndex.call(this);
     };
 
+    // Marker icons are focusable by default (keyboard accessibility), so a
+    // plain click focuses the icon and fires Leaflet's built-in
+    // autoPanOnFocus → _panOnFocus → map.panInside(). panInside works in the
+    // map's unrotated projected-pixel plane (project()/getPixelBounds()) —
+    // it has no concept of the CSS rotation applied to the view. While the
+    // map sits exactly at its initial center this coincidentally lines up,
+    // but after any pan it judges "is this marker visible" against an
+    // axis-aligned box that no longer matches what's actually on screen and
+    // fires an arbitrary, wrong pan on every marker click — the map jumps
+    // instead of the popup opening. Same fix as Popup._adjustPan below:
+    // skip it while rotated.
+    if (L.Marker.prototype._panOnFocus) {
+      var _markerPanOnFocus = L.Marker.prototype._panOnFocus;
+      L.Marker.prototype._panOnFocus = function () {
+        if (this._map && this._map._rotate) return;
+        return _markerPanOnFocus.call(this);
+      };
+    }
+
     // =====================================================================
     // 7. L.Icon — transform-origin on anchor
     // =====================================================================
