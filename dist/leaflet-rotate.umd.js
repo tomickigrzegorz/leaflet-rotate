@@ -322,6 +322,41 @@
       return _tryAnimatedZoom.call(this, center, zoom, options);
     };
 
+    // --- invalidateSize: keep the geo center anchored across a resize ---
+    // Stock invalidateSize compensates a container-size change with a raw,
+    // unrotated pixel pan (half the old/new size delta) via _rawPanBy. That's
+    // fine at bearing 0, but wrong once rotated: the 'resize' event this fires
+    // also drives _updateRotatePaneTransform, which re-centers the CSS
+    // rotation pivot (transform-origin) to the NEW viewport center — and the
+    // naive, unrotated pan doesn't compensate for the resulting rotation
+    // offset. Tiles/markers visibly jump. This fires automatically whenever
+    // the container size changes (map.options.trackResize, on by default) —
+    // on mobile that includes the browser address bar hiding/showing when
+    // switching apps and coming back, so a rotated map appears to "shift on
+    // its own" right after the tab regains focus/visibility.
+    // Fix: reproject onto the same geographic center instead of nudging pixels
+    // — the same approach _commitRotatePan/_tryAnimatedZoom already use, and
+    // it's rotation-correct by construction.
+    var _invalidateSize = _mapProto$1.invalidateSize;
+    _mapProto$1.invalidateSize = function (options) {
+      var opts = L.Util.extend(
+        { animate: false, pan: true },
+        options === true ? { animate: true } : options,
+      );
+      if (!this._rotate || !this._bearing || !this._loaded || !opts.pan) {
+        return _invalidateSize.call(this, options);
+      }
+      var oldSize = this.getSize();
+      var center = this.getCenter();
+      var zoom = this.getZoom();
+      this._sizeChanged = true;
+      this._lastCenter = null;
+      var newSize = this.getSize();
+      if (oldSize.equals(newSize)) return this;
+      this._resetView(center, zoom, true);
+      return this.fire("resize", { oldSize: oldSize, newSize: newSize });
+    };
+
     // --- Resize handler: update transform-origin ---
     L.Map.addInitHook(function () {
       if (this._rotate) {
@@ -589,6 +624,25 @@
       if (this._map && this._map._rotating) return;
       return _markerResetZIndex.call(this);
     };
+
+    // Marker icons are focusable by default (keyboard accessibility), so a
+    // plain click focuses the icon and fires Leaflet's built-in
+    // autoPanOnFocus → _panOnFocus → map.panInside(). panInside works in the
+    // map's unrotated projected-pixel plane (project()/getPixelBounds()) —
+    // it has no concept of the CSS rotation applied to the view. While the
+    // map sits exactly at its initial center this coincidentally lines up,
+    // but after any pan it judges "is this marker visible" against an
+    // axis-aligned box that no longer matches what's actually on screen and
+    // fires an arbitrary, wrong pan on every marker click — the map jumps
+    // instead of the popup opening. Same fix as Popup._adjustPan below:
+    // skip it while rotated.
+    if (L.Marker.prototype._panOnFocus) {
+      var _markerPanOnFocus = L.Marker.prototype._panOnFocus;
+      L.Marker.prototype._panOnFocus = function () {
+        if (this._map && this._map._rotate) return;
+        return _markerPanOnFocus.call(this);
+      };
+    }
 
     // =====================================================================
     // 7. L.Icon — transform-origin on anchor
@@ -1202,8 +1256,25 @@
         }
         L.DomEvent.on(document, "mousemove", this._onMove, this);
         L.DomEvent.on(document, "mouseup", this._onUp, this);
+        // Safety net: if the button-up never reaches us (window loses focus
+        // mid-drag — e.g. the user switches to DevTools — or the tab is
+        // hidden), the mousemove/mouseup listeners above would otherwise
+        // stay attached forever. The next stray mousemove on refocus (browsers
+        // fire one even with no real movement) would then be read as further
+        // rotation. End the gesture as soon as focus/visibility is lost.
+        L.DomEvent.on(window, "blur", this._onUp, this);
+        L.DomEvent.on(document, "visibilitychange", this._onVisibilityChange, this);
+      },
+      _onVisibilityChange: function (e) {
+        if (document.hidden) this._onUp(e);
       },
       _onMove: function (e) {
+        // Right button released without a mouseup reaching us (e.g. swallowed
+        // by focus loss). Bail instead of reacting to a driveless mousemove.
+        if (typeof e.buttons === "number" && (e.buttons & 2) === 0) {
+          this._onUp(e);
+          return;
+        }
         var dx = e.clientX - this._startX;
         if (!this._moved && Math.abs(dx) < 2) return;
         if (!this._moved) {
@@ -1228,6 +1299,13 @@
       _cleanup: function () {
         L.DomEvent.off(document, "mousemove", this._onMove, this);
         L.DomEvent.off(document, "mouseup", this._onUp, this);
+        L.DomEvent.off(window, "blur", this._onUp, this);
+        L.DomEvent.off(
+          document,
+          "visibilitychange",
+          this._onVisibilityChange,
+          this,
+        );
         if (this._moved) {
           this._moved = false;
           this._map._rotating = false;
@@ -1284,6 +1362,40 @@
       }
       return result;
     };
+
+    // =====================================================================
+    // 13. L.Draggable safety net — recover from a lost mouseup
+    // =====================================================================
+    // Stock L.Draggable (map panning, marker dragging) attaches its mousemove/
+    // mouseup listeners to `document` on mousedown and only detaches them on
+    // mouseup. If that mouseup never arrives — the window loses focus mid-drag
+    // (switching to DevTools, alt-tab, a native dialog) or the tab is hidden —
+    // the listeners stay attached. The browser fires a mousemove on refocus
+    // even without real movement, and Draggable reads it as further dragging,
+    // yanking the map/marker to wherever the cursor now is. Two nets:
+    //  1. Any mousemove reporting the button no longer held ends the drag.
+    //  2. Losing window focus / tab visibility ends the drag immediately.
+    var _draggableOnMove = L.Draggable.prototype._onMove;
+    L.Draggable.prototype._onMove = function (e) {
+      if (
+        e.type === "mousemove" &&
+        typeof e.buttons === "number" &&
+        (e.buttons & 1) === 0
+      ) {
+        this._onUp(e);
+        return;
+      }
+      return _draggableOnMove.call(this, e);
+    };
+
+    L.DomEvent.on(window, "blur", function () {
+      if (L.Draggable._dragging) L.Draggable._dragging._onUp();
+    });
+    L.DomEvent.on(document, "visibilitychange", function () {
+      if (document.hidden && L.Draggable._dragging) {
+        L.Draggable._dragging._onUp();
+      }
+    });
 
   // =====================================================================
     // 11. L.Control.Rotate — unified compass control
