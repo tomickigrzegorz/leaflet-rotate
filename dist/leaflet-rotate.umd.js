@@ -1202,8 +1202,25 @@
         }
         L.DomEvent.on(document, "mousemove", this._onMove, this);
         L.DomEvent.on(document, "mouseup", this._onUp, this);
+        // Safety net: if the button-up never reaches us (window loses focus
+        // mid-drag — e.g. the user switches to DevTools — or the tab is
+        // hidden), the mousemove/mouseup listeners above would otherwise
+        // stay attached forever. The next stray mousemove on refocus (browsers
+        // fire one even with no real movement) would then be read as further
+        // rotation. End the gesture as soon as focus/visibility is lost.
+        L.DomEvent.on(window, "blur", this._onUp, this);
+        L.DomEvent.on(document, "visibilitychange", this._onVisibilityChange, this);
+      },
+      _onVisibilityChange: function (e) {
+        if (document.hidden) this._onUp(e);
       },
       _onMove: function (e) {
+        // Right button released without a mouseup reaching us (e.g. swallowed
+        // by focus loss). Bail instead of reacting to a driveless mousemove.
+        if (typeof e.buttons === "number" && (e.buttons & 2) === 0) {
+          this._onUp(e);
+          return;
+        }
         var dx = e.clientX - this._startX;
         if (!this._moved && Math.abs(dx) < 2) return;
         if (!this._moved) {
@@ -1228,6 +1245,13 @@
       _cleanup: function () {
         L.DomEvent.off(document, "mousemove", this._onMove, this);
         L.DomEvent.off(document, "mouseup", this._onUp, this);
+        L.DomEvent.off(window, "blur", this._onUp, this);
+        L.DomEvent.off(
+          document,
+          "visibilitychange",
+          this._onVisibilityChange,
+          this,
+        );
         if (this._moved) {
           this._moved = false;
           this._map._rotating = false;
@@ -1284,6 +1308,40 @@
       }
       return result;
     };
+
+    // =====================================================================
+    // 13. L.Draggable safety net — recover from a lost mouseup
+    // =====================================================================
+    // Stock L.Draggable (map panning, marker dragging) attaches its mousemove/
+    // mouseup listeners to `document` on mousedown and only detaches them on
+    // mouseup. If that mouseup never arrives — the window loses focus mid-drag
+    // (switching to DevTools, alt-tab, a native dialog) or the tab is hidden —
+    // the listeners stay attached. The browser fires a mousemove on refocus
+    // even without real movement, and Draggable reads it as further dragging,
+    // yanking the map/marker to wherever the cursor now is. Two nets:
+    //  1. Any mousemove reporting the button no longer held ends the drag.
+    //  2. Losing window focus / tab visibility ends the drag immediately.
+    var _draggableOnMove = L.Draggable.prototype._onMove;
+    L.Draggable.prototype._onMove = function (e) {
+      if (
+        e.type === "mousemove" &&
+        typeof e.buttons === "number" &&
+        (e.buttons & 1) === 0
+      ) {
+        this._onUp(e);
+        return;
+      }
+      return _draggableOnMove.call(this, e);
+    };
+
+    L.DomEvent.on(window, "blur", function () {
+      if (L.Draggable._dragging) L.Draggable._dragging._onUp();
+    });
+    L.DomEvent.on(document, "visibilitychange", function () {
+      if (document.hidden && L.Draggable._dragging) {
+        L.Draggable._dragging._onUp();
+      }
+    });
 
   // =====================================================================
     // 11. L.Control.Rotate — unified compass control
