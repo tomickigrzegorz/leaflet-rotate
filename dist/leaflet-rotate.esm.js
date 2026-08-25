@@ -318,6 +318,41 @@ function now() {
     return _tryAnimatedZoom.call(this, center, zoom, options);
   };
 
+  // --- invalidateSize: keep the geo center anchored across a resize ---
+  // Stock invalidateSize compensates a container-size change with a raw,
+  // unrotated pixel pan (half the old/new size delta) via _rawPanBy. That's
+  // fine at bearing 0, but wrong once rotated: the 'resize' event this fires
+  // also drives _updateRotatePaneTransform, which re-centers the CSS
+  // rotation pivot (transform-origin) to the NEW viewport center — and the
+  // naive, unrotated pan doesn't compensate for the resulting rotation
+  // offset. Tiles/markers visibly jump. This fires automatically whenever
+  // the container size changes (map.options.trackResize, on by default) —
+  // on mobile that includes the browser address bar hiding/showing when
+  // switching apps and coming back, so a rotated map appears to "shift on
+  // its own" right after the tab regains focus/visibility.
+  // Fix: reproject onto the same geographic center instead of nudging pixels
+  // — the same approach _commitRotatePan/_tryAnimatedZoom already use, and
+  // it's rotation-correct by construction.
+  var _invalidateSize = _mapProto$1.invalidateSize;
+  _mapProto$1.invalidateSize = function (options) {
+    var opts = L.Util.extend(
+      { animate: false, pan: true },
+      options === true ? { animate: true } : options,
+    );
+    if (!this._rotate || !this._bearing || !this._loaded || !opts.pan) {
+      return _invalidateSize.call(this, options);
+    }
+    var oldSize = this.getSize();
+    var center = this.getCenter();
+    var zoom = this.getZoom();
+    this._sizeChanged = true;
+    this._lastCenter = null;
+    var newSize = this.getSize();
+    if (oldSize.equals(newSize)) return this;
+    this._resetView(center, zoom, true);
+    return this.fire("resize", { oldSize: oldSize, newSize: newSize });
+  };
+
   // --- Resize handler: update transform-origin ---
   L.Map.addInitHook(function () {
     if (this._rotate) {
