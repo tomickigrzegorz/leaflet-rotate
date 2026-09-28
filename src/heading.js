@@ -32,6 +32,10 @@ const _mapProto = L.Map.prototype;
     return this;
   };
 
+  L.Map.addInitHook(function () {
+    this.on("unload", this.stopHeadingUp, this);
+  });
+
   _mapProto.getHeadingUp = function () {
     return !!this._headingUp;
   };

@@ -79,6 +79,7 @@ import L from "leaflet";
 
     _disableRotation: function () {
       this._enabled = false;
+      this._map.stopHeadingUp();
       if (this._map.dragRotate) this._map.dragRotate.disable();
       if (this._map.touchGestures) this._map.touchGestures.disable();
       if (this._map.touchZoom) this._map.touchZoom.enable();

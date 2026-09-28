@@ -67,6 +67,11 @@ import {
         this._onTouchEnd,
         this,
       );
+      if (this._animRequest) {
+        L.Util.cancelAnimFrame(this._animRequest);
+        this._animRequest = null;
+      }
+      this._stopRotateInertia();
     },
 
     _onTouchStart: function (e) {
@@ -493,6 +498,7 @@ import {
     _SENSITIVITY: 0.5, // degrees per pixel of horizontal movement
 
     addHooks: function () {
+      if (!this._map._rotate) return;
       L.DomEvent.on(this._map._container, "mousedown", this._onDown, this);
       L.DomEvent.on(
         this._map._container,

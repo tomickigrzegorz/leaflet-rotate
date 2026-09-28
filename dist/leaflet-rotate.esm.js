@@ -128,7 +128,7 @@ function now() {
 
   // --- setBearing / getBearing ---
   _mapProto$1.setBearing = function (theta) {
-    if (!this._rotate) return;
+    if (!this._rotate || !isFinite(theta)) return;
     var prev = this._bearing || 0;
     var bearing = normalizeDeg(theta);
     if (bearing === prev) return;
@@ -310,10 +310,7 @@ function now() {
   var _tryAnimatedZoom = _mapProto$1._tryAnimatedZoom;
   _mapProto$1._tryAnimatedZoom = function (center, zoom, options) {
     if (this._rotate && this._bearing && !this._animatingZoom) {
-      var pos = this._getMapPanePos();
-      if (pos && (pos.x || pos.y)) {
-        this._resetView(this.getCenter(), this.getZoom(), true);
-      }
+      this._commitRotatePan();
     }
     return _tryAnimatedZoom.call(this, center, zoom, options);
   };
@@ -349,7 +346,9 @@ function now() {
     this._lastCenter = null;
     var newSize = this.getSize();
     if (oldSize.equals(newSize)) return this;
+    this._committingRotatePan = true;
     this._resetView(center, zoom, true);
+    this._committingRotatePan = false;
     return this.fire("resize", { oldSize: oldSize, newSize: newSize });
   };
 
@@ -501,6 +500,10 @@ const _mapProto = L.Map.prototype;
     }
     return this;
   };
+
+  L.Map.addInitHook(function () {
+    this.on("unload", this.stopHeadingUp, this);
+  });
 
   _mapProto.getHeadingUp = function () {
     return !!this._headingUp;
@@ -797,6 +800,11 @@ const _mapProto = L.Map.prototype;
         this._onTouchEnd,
         this,
       );
+      if (this._animRequest) {
+        L.Util.cancelAnimFrame(this._animRequest);
+        this._animRequest = null;
+      }
+      this._stopRotateInertia();
     },
 
     _onTouchStart: function (e) {
@@ -1220,6 +1228,7 @@ const _mapProto = L.Map.prototype;
     _SENSITIVITY: 0.5, // degrees per pixel of horizontal movement
 
     addHooks: function () {
+      if (!this._map._rotate) return;
       L.DomEvent.on(this._map._container, "mousedown", this._onDown, this);
       L.DomEvent.on(
         this._map._container,
@@ -1472,6 +1481,7 @@ const _mapProto = L.Map.prototype;
 
     _disableRotation: function () {
       this._enabled = false;
+      this._map.stopHeadingUp();
       if (this._map.dragRotate) this._map.dragRotate.disable();
       if (this._map.touchGestures) this._map.touchGestures.disable();
       if (this._map.touchZoom) this._map.touchZoom.enable();
