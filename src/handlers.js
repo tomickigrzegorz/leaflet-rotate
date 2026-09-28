@@ -372,7 +372,6 @@ import {
       var self = this;
 
       map._rotInertia = true;
-      map.fire("rotatestart");
       var step = function () {
         var t = now();
         var dt = t - last;
@@ -511,8 +510,12 @@ import {
   L.Map.DragRotate = L.Handler.extend({
     _SENSITIVITY: 0.5, // degrees per pixel of horizontal movement
 
+    enable: function () {
+      if (!this._map._rotate) return this;
+      return L.Handler.prototype.enable.call(this);
+    },
+
     addHooks: function () {
-      if (!this._map._rotate) return;
       L.DomEvent.on(this._map._container, "mousedown", this._onDown, this);
       L.DomEvent.on(
         this._map._container,
