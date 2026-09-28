@@ -6,6 +6,8 @@ import {
   wrapDeg,
   wrapRad,
   now,
+  FRAME_MS,
+  frameEase,
 } from "./constants.js";
 
   // =====================================================================
@@ -67,9 +69,20 @@ import {
         this._onTouchEnd,
         this,
       );
+      if (this._animRequest) {
+        L.Util.cancelAnimFrame(this._animRequest);
+        this._animRequest = null;
+      }
+      this._stopRotateInertia();
     },
 
     _onTouchStart: function (e) {
+      // A finger added mid-pinch (3+ touches): finish the gesture cleanly
+      // (snap zoom, fire moveend/rotateend) instead of abandoning it.
+      if (this._active && (!e.touches || e.touches.length !== 2)) {
+        this._lastRotTime = 0;
+        this._onTouchEnd(e);
+      }
       // Any new touch (even a single-finger pan) must abort rotation inertia
       // first, or its setBearing loop races the drag: tiles jump and the
       // marker layer-point cache goes stale (markers lag, then snap back).
@@ -309,6 +322,8 @@ import {
         } else {
           map._resetView(this._center, map._limitZoom(this._zoom));
         }
+      } else {
+        map._moveEnd(true);
       }
       if (this._rotationActive) {
         if (!this._startRotateInertia()) {
@@ -357,7 +372,6 @@ import {
       var self = this;
 
       map._rotInertia = true;
-      map.fire("rotatestart");
       var step = function () {
         var t = now();
         var dt = t - last;
@@ -425,6 +439,7 @@ import {
     _startAnim: function () {
       if (this._animating) return;
       this._animating = true;
+      this._lastT = 0;
       this._animRequest = L.Util.requestAnimFrame(this._animate, this, true);
     },
 
@@ -457,7 +472,10 @@ import {
         return;
       }
 
-      map.setBearing(current + diff * this._EASE);
+      var t = now();
+      var dt = this._lastT ? Math.min(t - this._lastT, 100) : FRAME_MS;
+      this._lastT = t;
+      map.setBearing(current + diff * frameEase(this._EASE, dt));
       this._animRequest = L.Util.requestAnimFrame(this._animate, this, true);
     },
   });
@@ -491,6 +509,11 @@ import {
   // =====================================================================
   L.Map.DragRotate = L.Handler.extend({
     _SENSITIVITY: 0.5, // degrees per pixel of horizontal movement
+
+    enable: function () {
+      if (!this._map._rotate) return this;
+      return L.Handler.prototype.enable.call(this);
+    },
 
     addHooks: function () {
       L.DomEvent.on(this._map._container, "mousedown", this._onDown, this);

@@ -56,10 +56,10 @@ import { DEG_TO_RAD, normalizeDeg } from "./constants.js";
 
   // --- setBearing / getBearing ---
   _mapProto.setBearing = function (theta) {
-    if (!this._rotate) return;
+    if (!this._rotate || !isFinite(theta)) return this;
     var prev = this._bearing || 0;
     var bearing = normalizeDeg(theta);
-    if (bearing === prev) return;
+    if (bearing === prev) return this;
     this._commitRotatePan();
     this._bearing = bearing;
     this._bearingRad = bearing * DEG_TO_RAD;
@@ -74,7 +74,7 @@ import { DEG_TO_RAD, normalizeDeg } from "./constants.js";
         if (layer instanceof L.Renderer) layer._update();
       }
     }
-    this.fire("rotate");
+    return this.fire("rotate");
   };
 
   _mapProto.getBearing = function () {
@@ -238,10 +238,7 @@ import { DEG_TO_RAD, normalizeDeg } from "./constants.js";
   var _tryAnimatedZoom = _mapProto._tryAnimatedZoom;
   _mapProto._tryAnimatedZoom = function (center, zoom, options) {
     if (this._rotate && this._bearing && !this._animatingZoom) {
-      var pos = this._getMapPanePos();
-      if (pos && (pos.x || pos.y)) {
-        this._resetView(this.getCenter(), this.getZoom(), true);
-      }
+      this._commitRotatePan();
     }
     return _tryAnimatedZoom.call(this, center, zoom, options);
   };
@@ -277,7 +274,9 @@ import { DEG_TO_RAD, normalizeDeg } from "./constants.js";
     this._lastCenter = null;
     var newSize = this.getSize();
     if (oldSize.equals(newSize)) return this;
+    this._committingRotatePan = true;
     this._resetView(center, zoom, true);
+    this._committingRotatePan = false;
     return this.fire("resize", { oldSize: oldSize, newSize: newSize });
   };
 

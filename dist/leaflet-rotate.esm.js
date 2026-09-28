@@ -1,4 +1,4 @@
-/*! @tomickigrzegorz/leaflet-rotate v0.2.4 | MIT */
+/*! @tomickigrzegorz/leaflet-rotate v0.3.0 | MIT */
 import L from 'leaflet';
 
 // =====================================================================
@@ -18,35 +18,6 @@ import L from 'leaflet';
     return this.subtract(pivot).rotate(theta).add(pivot);
   };
 
-  // =====================================================================
-  // 2. L.DomUtil — extended setTransform / setPosition
-  // =====================================================================
-  L.DomUtil.setTransform = function (el, offset, scale, bearing, pivot) {
-    var pos = offset || new L.Point(0, 0);
-    var transform = "translate3d(" + pos.x + "px," + pos.y + "px,0)";
-    if (scale !== undefined && scale !== null) {
-      transform += " scale(" + scale + ")";
-    }
-    if (bearing) {
-      transform += " rotate(" + bearing + "rad)";
-    }
-    el.style[L.DomUtil.TRANSFORM] = transform;
-    if (pivot) {
-      el.style[L.DomUtil.TRANSFORM + "Origin"] =
-        pivot.x + "px " + pivot.y + "px";
-    }
-  };
-
-  L.DomUtil.setPosition = function (el, point, bearing, pivot) {
-    el._leaflet_pos = point;
-    if (L.Browser.any3d) {
-      L.DomUtil.setTransform(el, point, undefined, bearing, pivot);
-    } else {
-      el.style.left = point.x + "px";
-      el.style.top = point.y + "px";
-    }
-  };
-
 const DEG_TO_RAD = Math.PI / 180;
 const RAD_TO_DEG = 180 / Math.PI;
 
@@ -64,6 +35,14 @@ function wrapDeg(deg) {
 function wrapRad(rad) {
   var twoPi = 2 * Math.PI;
   return ((((rad + Math.PI) % twoPi) + twoPi) % twoPi) - Math.PI;
+}
+
+const FRAME_MS = 1000 / 60;
+
+// Per-frame ease factor tuned at 60 Hz, scaled to the real frame time
+// so easing speed doesn't depend on display refresh rate.
+function frameEase(ease, dt) {
+  return 1 - Math.pow(1 - ease, dt / FRAME_MS);
 }
 
 // Monotonic-ish timestamp; performance.now is missing in some old WebViews
@@ -128,10 +107,10 @@ function now() {
 
   // --- setBearing / getBearing ---
   _mapProto$1.setBearing = function (theta) {
-    if (!this._rotate) return;
+    if (!this._rotate || !isFinite(theta)) return this;
     var prev = this._bearing || 0;
     var bearing = normalizeDeg(theta);
-    if (bearing === prev) return;
+    if (bearing === prev) return this;
     this._commitRotatePan();
     this._bearing = bearing;
     this._bearingRad = bearing * DEG_TO_RAD;
@@ -146,7 +125,7 @@ function now() {
         if (layer instanceof L.Renderer) layer._update();
       }
     }
-    this.fire("rotate");
+    return this.fire("rotate");
   };
 
   _mapProto$1.getBearing = function () {
@@ -310,10 +289,7 @@ function now() {
   var _tryAnimatedZoom = _mapProto$1._tryAnimatedZoom;
   _mapProto$1._tryAnimatedZoom = function (center, zoom, options) {
     if (this._rotate && this._bearing && !this._animatingZoom) {
-      var pos = this._getMapPanePos();
-      if (pos && (pos.x || pos.y)) {
-        this._resetView(this.getCenter(), this.getZoom(), true);
-      }
+      this._commitRotatePan();
     }
     return _tryAnimatedZoom.call(this, center, zoom, options);
   };
@@ -349,7 +325,9 @@ function now() {
     this._lastCenter = null;
     var newSize = this.getSize();
     if (oldSize.equals(newSize)) return this;
+    this._committingRotatePan = true;
     this._resetView(center, zoom, true);
+    this._committingRotatePan = false;
     return this.fire("resize", { oldSize: oldSize, newSize: newSize });
   };
 
@@ -502,12 +480,17 @@ const _mapProto = L.Map.prototype;
     return this;
   };
 
+  L.Map.addInitHook(function () {
+    this.on("unload", this.stopHeadingUp, this);
+  });
+
   _mapProto.getHeadingUp = function () {
     return !!this._headingUp;
   };
 
   _mapProto._startHeadingAnim = function () {
     if (this._headingRAF) return;
+    this._headingLastT = 0;
     this._headingRAF = L.Util.requestAnimFrame(this._headingAnim, this);
   };
 
@@ -520,7 +503,10 @@ const _mapProto = L.Map.prototype;
       if (Math.abs(diff) > 0.001) this.setBearing(this._headingTarget);
       return; // settled; loop restarts on next setHeading
     }
-    this.setBearing(current + diff * this._headingEase);
+    var t = now();
+    var dt = this._headingLastT ? Math.min(t - this._headingLastT, 100) : FRAME_MS;
+    this._headingLastT = t;
+    this.setBearing(current + diff * frameEase(this._headingEase, dt));
     this._headingRAF = L.Util.requestAnimFrame(this._headingAnim, this);
   };
 
@@ -679,7 +665,11 @@ const _mapProto = L.Map.prototype;
       var rotatedPos = this._map.rotatedPointToMapPanePoint(pos);
       var offset = L.point(this.options.offset);
       var anchor = this._getAnchor();
-      L.DomUtil.setPosition(this._container, rotatedPos.add(anchor));
+      if (this._zoomAnimated) {
+        L.DomUtil.setPosition(this._container, rotatedPos.add(anchor));
+      } else {
+        offset = offset.add(rotatedPos).add(anchor);
+      }
 
       this._containerBottom = -offset.y;
       this._containerLeft =
@@ -797,9 +787,20 @@ const _mapProto = L.Map.prototype;
         this._onTouchEnd,
         this,
       );
+      if (this._animRequest) {
+        L.Util.cancelAnimFrame(this._animRequest);
+        this._animRequest = null;
+      }
+      this._stopRotateInertia();
     },
 
     _onTouchStart: function (e) {
+      // A finger added mid-pinch (3+ touches): finish the gesture cleanly
+      // (snap zoom, fire moveend/rotateend) instead of abandoning it.
+      if (this._active && (!e.touches || e.touches.length !== 2)) {
+        this._lastRotTime = 0;
+        this._onTouchEnd(e);
+      }
       // Any new touch (even a single-finger pan) must abort rotation inertia
       // first, or its setBearing loop races the drag: tiles jump and the
       // marker layer-point cache goes stale (markers lag, then snap back).
@@ -1036,6 +1037,8 @@ const _mapProto = L.Map.prototype;
         } else {
           map._resetView(this._center, map._limitZoom(this._zoom));
         }
+      } else {
+        map._moveEnd(true);
       }
       if (this._rotationActive) {
         if (!this._startRotateInertia()) {
@@ -1084,7 +1087,6 @@ const _mapProto = L.Map.prototype;
       var self = this;
 
       map._rotInertia = true;
-      map.fire("rotatestart");
       var step = function () {
         var t = now();
         var dt = t - last;
@@ -1152,6 +1154,7 @@ const _mapProto = L.Map.prototype;
     _startAnim: function () {
       if (this._animating) return;
       this._animating = true;
+      this._lastT = 0;
       this._animRequest = L.Util.requestAnimFrame(this._animate, this, true);
     },
 
@@ -1184,7 +1187,10 @@ const _mapProto = L.Map.prototype;
         return;
       }
 
-      map.setBearing(current + diff * this._EASE);
+      var t = now();
+      var dt = this._lastT ? Math.min(t - this._lastT, 100) : FRAME_MS;
+      this._lastT = t;
+      map.setBearing(current + diff * frameEase(this._EASE, dt));
       this._animRequest = L.Util.requestAnimFrame(this._animate, this, true);
     },
   });
@@ -1218,6 +1224,11 @@ const _mapProto = L.Map.prototype;
   // =====================================================================
   L.Map.DragRotate = L.Handler.extend({
     _SENSITIVITY: 0.5, // degrees per pixel of horizontal movement
+
+    enable: function () {
+      if (!this._map._rotate) return this;
+      return L.Handler.prototype.enable.call(this);
+    },
 
     addHooks: function () {
       L.DomEvent.on(this._map._container, "mousedown", this._onDown, this);
@@ -1472,6 +1483,7 @@ const _mapProto = L.Map.prototype;
 
     _disableRotation: function () {
       this._enabled = false;
+      this._map.stopHeadingUp();
       if (this._map.dragRotate) this._map.dragRotate.disable();
       if (this._map.touchGestures) this._map.touchGestures.disable();
       if (this._map.touchZoom) this._map.touchZoom.enable();
