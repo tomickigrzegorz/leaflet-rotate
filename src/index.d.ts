@@ -7,14 +7,7 @@ declare module "leaflet" {
     touchRotate?: boolean;
     shiftKeyRotate?: boolean;
     dragRotate?: boolean;
-    rotateControl?:
-      | boolean
-      | {
-          position?: string;
-          behavior?: "reset" | "toggle";
-          closeOnZeroBearing?: boolean;
-          enabled?: boolean;
-        };
+    rotateControl?: boolean | Control.RotateOptions;
     rotateClockwise?: boolean;
     preventPageGestures?: boolean;
   }
@@ -26,10 +19,32 @@ declare module "leaflet" {
   }
 
   interface Map {
-    setBearing(theta: number): void;
+    setBearing(theta: number): this;
     getBearing(): number;
     setHeading(deg: number | null, options?: { ease?: number; deadzone?: number }): this;
     stopHeadingUp(): this;
     getHeadingUp(): boolean;
+
+    touchGestures?: Handler;
+    shiftKeyRotate?: Handler;
+    dragRotate?: Handler;
+    rotateControl?: Control.Rotate;
+  }
+
+  namespace Control {
+    interface RotateOptions extends ControlOptions {
+      behavior?: "reset" | "toggle";
+      closeOnZeroBearing?: boolean;
+      enabled?: boolean;
+    }
+
+    class Rotate extends Control {
+      constructor(options?: RotateOptions);
+      options: RotateOptions;
+    }
+  }
+
+  namespace control {
+    function rotate(options?: Control.RotateOptions): Control.Rotate;
   }
 }

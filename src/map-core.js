@@ -56,10 +56,10 @@ import { DEG_TO_RAD, normalizeDeg } from "./constants.js";
 
   // --- setBearing / getBearing ---
   _mapProto.setBearing = function (theta) {
-    if (!this._rotate || !isFinite(theta)) return;
+    if (!this._rotate || !isFinite(theta)) return this;
     var prev = this._bearing || 0;
     var bearing = normalizeDeg(theta);
-    if (bearing === prev) return;
+    if (bearing === prev) return this;
     this._commitRotatePan();
     this._bearing = bearing;
     this._bearingRad = bearing * DEG_TO_RAD;
@@ -74,7 +74,7 @@ import { DEG_TO_RAD, normalizeDeg } from "./constants.js";
         if (layer instanceof L.Renderer) layer._update();
       }
     }
-    this.fire("rotate");
+    return this.fire("rotate");
   };
 
   _mapProto.getBearing = function () {

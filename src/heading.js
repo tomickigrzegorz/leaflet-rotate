@@ -1,5 +1,5 @@
 import L from "leaflet";
-import { normalizeDeg, wrapDeg } from "./constants.js";
+import { normalizeDeg, wrapDeg, now, FRAME_MS, frameEase } from "./constants.js";
 
 const _mapProto = L.Map.prototype;
 
@@ -42,6 +42,7 @@ const _mapProto = L.Map.prototype;
 
   _mapProto._startHeadingAnim = function () {
     if (this._headingRAF) return;
+    this._headingLastT = 0;
     this._headingRAF = L.Util.requestAnimFrame(this._headingAnim, this);
   };
 
@@ -54,6 +55,9 @@ const _mapProto = L.Map.prototype;
       if (Math.abs(diff) > 0.001) this.setBearing(this._headingTarget);
       return; // settled; loop restarts on next setHeading
     }
-    this.setBearing(current + diff * this._headingEase);
+    var t = now();
+    var dt = this._headingLastT ? Math.min(t - this._headingLastT, 100) : FRAME_MS;
+    this._headingLastT = t;
+    this.setBearing(current + diff * frameEase(this._headingEase, dt));
     this._headingRAF = L.Util.requestAnimFrame(this._headingAnim, this);
   };

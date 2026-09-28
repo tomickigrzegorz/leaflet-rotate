@@ -155,7 +155,11 @@ import L from "leaflet";
       var rotatedPos = this._map.rotatedPointToMapPanePoint(pos);
       var offset = L.point(this.options.offset);
       var anchor = this._getAnchor();
-      L.DomUtil.setPosition(this._container, rotatedPos.add(anchor));
+      if (this._zoomAnimated) {
+        L.DomUtil.setPosition(this._container, rotatedPos.add(anchor));
+      } else {
+        offset = offset.add(rotatedPos).add(anchor);
+      }
 
       this._containerBottom = -offset.y;
       this._containerLeft =

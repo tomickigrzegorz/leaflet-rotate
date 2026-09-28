@@ -17,6 +17,14 @@ export function wrapRad(rad) {
   return ((((rad + Math.PI) % twoPi) + twoPi) % twoPi) - Math.PI;
 }
 
+export const FRAME_MS = 1000 / 60;
+
+// Per-frame ease factor tuned at 60 Hz, scaled to the real frame time
+// so easing speed doesn't depend on display refresh rate.
+export function frameEase(ease, dt) {
+  return 1 - Math.pow(1 - ease, dt / FRAME_MS);
+}
+
 // Monotonic-ish timestamp; performance.now is missing in some old WebViews
 export function now() {
   return typeof performance !== "undefined" && performance.now

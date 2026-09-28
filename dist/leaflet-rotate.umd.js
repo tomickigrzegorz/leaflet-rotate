@@ -70,6 +70,14 @@
     return ((((rad + Math.PI) % twoPi) + twoPi) % twoPi) - Math.PI;
   }
 
+  const FRAME_MS = 1000 / 60;
+
+  // Per-frame ease factor tuned at 60 Hz, scaled to the real frame time
+  // so easing speed doesn't depend on display refresh rate.
+  function frameEase(ease, dt) {
+    return 1 - Math.pow(1 - ease, dt / FRAME_MS);
+  }
+
   // Monotonic-ish timestamp; performance.now is missing in some old WebViews
   function now() {
     return typeof performance !== "undefined" && performance.now
@@ -132,10 +140,10 @@
 
     // --- setBearing / getBearing ---
     _mapProto$1.setBearing = function (theta) {
-      if (!this._rotate || !isFinite(theta)) return;
+      if (!this._rotate || !isFinite(theta)) return this;
       var prev = this._bearing || 0;
       var bearing = normalizeDeg(theta);
-      if (bearing === prev) return;
+      if (bearing === prev) return this;
       this._commitRotatePan();
       this._bearing = bearing;
       this._bearingRad = bearing * DEG_TO_RAD;
@@ -150,7 +158,7 @@
           if (layer instanceof L.Renderer) layer._update();
         }
       }
-      this.fire("rotate");
+      return this.fire("rotate");
     };
 
     _mapProto$1.getBearing = function () {
@@ -515,6 +523,7 @@
 
     _mapProto._startHeadingAnim = function () {
       if (this._headingRAF) return;
+      this._headingLastT = 0;
       this._headingRAF = L.Util.requestAnimFrame(this._headingAnim, this);
     };
 
@@ -527,7 +536,10 @@
         if (Math.abs(diff) > 0.001) this.setBearing(this._headingTarget);
         return; // settled; loop restarts on next setHeading
       }
-      this.setBearing(current + diff * this._headingEase);
+      var t = now();
+      var dt = this._headingLastT ? Math.min(t - this._headingLastT, 100) : FRAME_MS;
+      this._headingLastT = t;
+      this.setBearing(current + diff * frameEase(this._headingEase, dt));
       this._headingRAF = L.Util.requestAnimFrame(this._headingAnim, this);
     };
 
@@ -686,7 +698,11 @@
         var rotatedPos = this._map.rotatedPointToMapPanePoint(pos);
         var offset = L.point(this.options.offset);
         var anchor = this._getAnchor();
-        L.DomUtil.setPosition(this._container, rotatedPos.add(anchor));
+        if (this._zoomAnimated) {
+          L.DomUtil.setPosition(this._container, rotatedPos.add(anchor));
+        } else {
+          offset = offset.add(rotatedPos).add(anchor);
+        }
 
         this._containerBottom = -offset.y;
         this._containerLeft =
@@ -812,6 +828,12 @@
       },
 
       _onTouchStart: function (e) {
+        // A finger added mid-pinch (3+ touches): finish the gesture cleanly
+        // (snap zoom, fire moveend/rotateend) instead of abandoning it.
+        if (this._active && (!e.touches || e.touches.length !== 2)) {
+          this._lastRotTime = 0;
+          this._onTouchEnd(e);
+        }
         // Any new touch (even a single-finger pan) must abort rotation inertia
         // first, or its setBearing loop races the drag: tiles jump and the
         // marker layer-point cache goes stale (markers lag, then snap back).
@@ -1048,6 +1070,8 @@
           } else {
             map._resetView(this._center, map._limitZoom(this._zoom));
           }
+        } else {
+          map._moveEnd(true);
         }
         if (this._rotationActive) {
           if (!this._startRotateInertia()) {
@@ -1164,6 +1188,7 @@
       _startAnim: function () {
         if (this._animating) return;
         this._animating = true;
+        this._lastT = 0;
         this._animRequest = L.Util.requestAnimFrame(this._animate, this, true);
       },
 
@@ -1196,7 +1221,10 @@
           return;
         }
 
-        map.setBearing(current + diff * this._EASE);
+        var t = now();
+        var dt = this._lastT ? Math.min(t - this._lastT, 100) : FRAME_MS;
+        this._lastT = t;
+        map.setBearing(current + diff * frameEase(this._EASE, dt));
         this._animRequest = L.Util.requestAnimFrame(this._animate, this, true);
       },
     });
