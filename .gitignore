@@ -3,3 +3,4 @@ docs
 node_modules
 .playwright-mcp
 *-smoke.png
+iphone-testing.md
