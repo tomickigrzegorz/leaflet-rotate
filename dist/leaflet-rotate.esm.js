@@ -1,4 +1,4 @@
-/*! @tomickigrzegorz/leaflet-rotate v0.2.4 | MIT */
+/*! @tomickigrzegorz/leaflet-rotate v0.3.0 | MIT */
 import L from 'leaflet';
 
 // =====================================================================
