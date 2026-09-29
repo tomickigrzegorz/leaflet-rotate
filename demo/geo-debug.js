@@ -35,6 +35,9 @@
     '<button id="geo-debug-btn">Start</button>',
   ].join("");
   (document.getElementById("map") || document.body).appendChild(box);
+  // panel lives inside #map — keep clicks/dblclick/wheel off the map
+  L.DomEvent.disableClickPropagation(box);
+  L.DomEvent.disableScrollPropagation(box);
 
   function row(label, id, val) {
     return (

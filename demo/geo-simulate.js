@@ -1,10 +1,11 @@
 // geo-simulate.js — desktop walk simulator. Drop-in replacement for
 // geo-heading.js: same API (start/stop/isRunning) and the same
 // CustomEvent('geo:update') payloads, so geo-map-bridge and geo-debug
-// work unchanged. Mimics real sensors: GPS position steps discretely
-// (every gpsIntervalMs, with optional noise) while compass heading
-// streams smoothly (~10 Hz, with jitter) — the exact combination that
-// exposes rotation/flicker bugs while walking heading-up.
+// work unchanged. By default glides smoothly (position + heading every
+// tick, corners turned at turnRateDeg). For real-sensor behavior —
+// GPS stepping discretely while the compass streams with jitter, the
+// combination that exposes rotation/flicker bugs while walking
+// heading-up — use GeoSim.use({ gpsIntervalMs: 1000, jitterDeg: 2 }).
 //
 // Console usage:
 //   GeoSim.use()                      // swap into geoBridge and walk the default loop
@@ -35,9 +36,14 @@
     route: DEFAULT_ROUTE,
     loop: true,
     speed: 1.4, // m/s (walking pace)
-    gpsIntervalMs: 1000, // how often the emitted lat/lng jumps (GPS fix rate)
+    // how often the emitted lat/lng jumps (GPS fix rate). 100 = every tick,
+    // smooth glide; use 1000 to reproduce real-GPS discrete steps
+    gpsIntervalMs: 100,
     headingIntervalMs: 100, // compass emit rate
-    jitterDeg: 2, // random compass noise (peak, degrees)
+    turnRateDeg: 60, // max heading change (deg/s) — rounds route corners
+    // random compass noise (peak, degrees). 0 = steady map on straights;
+    // any noise makes heading-up rock the map left/right every tick
+    jitterDeg: 0,
     gpsNoiseM: 0, // random GPS offset per fix (meters)
     accuracy: 10, // reported accuracy (meters)
     smoothK: 0.3, // heading low-pass (same idea as geo-heading.js)
@@ -74,6 +80,7 @@
     this._fixLng = null;
     this._sx = null;
     this._sy = null;
+    this._course = null;
     this.heading = null;
   };
 
@@ -149,8 +156,19 @@
     var alive = this._advance((this.opts.speed * dt) / 1000);
     var pos = this._position();
 
+    // turn toward the segment course at a limited rate, so a route corner
+    // becomes a smooth turn instead of an instant jump
+    if (this._course === null) {
+      this._course = pos.course;
+    } else {
+      var diff = ((pos.course - this._course + 540) % 360) - 180;
+      var maxStep = (this.opts.turnRateDeg * dt) / 1000;
+      if (Math.abs(diff) > maxStep) diff = diff > 0 ? maxStep : -maxStep;
+      this._course = (this._course + diff + 360) % 360;
+    }
+
     var jitter = (Math.random() * 2 - 1) * this.opts.jitterDeg;
-    this._pushHeading(pos.course + jitter);
+    this._pushHeading(this._course + jitter);
 
     // GPS fix: the emitted lat/lng only jumps at gpsIntervalMs, like a
     // real receiver — this discrete step is what shakes out pan/rotate bugs
@@ -201,7 +219,19 @@
       clearInterval(this._timer);
       this._timer = null;
     }
+    // stopped via geoBridge.disable() (e.g. its locate button) — hand the
+    // bridge back to real sensors so the next enable doesn't restart the sim
+    var bridge = window.geoBridge;
+    if (!bridge || !bridge.active) this._handBack();
     this._updateBtn();
+  };
+
+  GeoSimSensor.prototype._handBack = function () {
+    var bridge = window.geoBridge;
+    if (bridge && this._origGeo && bridge.geo === this) {
+      bridge.geo = this._origGeo;
+    }
+    this._origGeo = null;
   };
 
   GeoSimSensor.prototype.isRunning = function () {
@@ -224,13 +254,10 @@
   };
 
   GeoSimSensor.prototype.restore = function () {
-    this.stop();
     var bridge = window.geoBridge;
-    if (bridge && this._origGeo) {
-      if (bridge.active) bridge.disable();
-      bridge.geo = this._origGeo;
-      this._origGeo = null;
-    }
+    // disable() stops the sim, and stop() hands the bridge back
+    if (bridge && bridge.active && bridge.geo === this) bridge.disable();
+    this.stop();
     return this;
   };
 
@@ -270,6 +297,10 @@
     var btn = document.createElement("button");
     btn.id = "geo-sim-btn";
     btn.textContent = "Sim walk";
+    // button lives inside #map — keep clicks/dblclick/wheel off the map
+    // (a dblclick zoom would also drop the bridge out of follow mode)
+    L.DomEvent.disableClickPropagation(btn);
+    L.DomEvent.disableScrollPropagation(btn);
     var self = this;
     btn.addEventListener("click", function () {
       if (self.running) self.restore();
